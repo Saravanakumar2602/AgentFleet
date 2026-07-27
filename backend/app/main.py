@@ -45,7 +45,10 @@ app.add_middleware(
 # Register System Health Router
 app.include_router(health_router, prefix="/health")
 
-# Register Agent Routers
+# Register Dispatch Agent Router at root level to support POST /dispatch
+app.include_router(dispatch_router)
+
+# Register versioned Agent Routers
 app.include_router(dispatch_router, prefix="/api/v1/dispatch", tags=["Dispatch & Allocation"])
 app.include_router(route_router, prefix="/api/v1/route", tags=["Route Intelligence"])
 app.include_router(maintenance_router, prefix="/api/v1/maintenance", tags=["Vehicle Health & Maintenance"])
