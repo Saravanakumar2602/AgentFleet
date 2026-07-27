@@ -1,31 +1,31 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+import logging
 
 from backend.app.database.supabase import get_db
-from backend.app.shared.response import success_response, error_response
-from backend.app.shared.logger import logger
-from backend.app.agents.customer.schemas import NotificationTriggerRequest
+from backend.app.agents.customer.schemas import NotificationRequest
 
+logger = logging.getLogger("agentfleet.agents.customer.routes")
 router = APIRouter()
 
-@router.post("/notify", tags=["Customer"])
-async def trigger_customer_notification(payload: NotificationTriggerRequest, db: Session = Depends(get_db)):
+@router.post("/customer/notify", tags=["Customer"])
+async def trigger_customer_notification(payload: NotificationRequest, db: Session = Depends(get_db)):
     """
-    Sends out updates regarding ETA revisions or delivery delays to customers.
+    Exposes POST /customer/notify API.
+    Resolves the Customer Communication Agent dynamically from the registry to avoid circular imports.
     """
-    logger.info(f"Triggering customer alert for client contact: {payload.customer_contact}")
-    try:
-        # Placeholder notification result
-        result = {
-            "customer_contact": payload.customer_contact,
-            "channel_used": payload.notification_channel,
-            "message_sent": f"Your cargo is in transit. Estimated ETA is 3:30 PM (simulation).",
-            "dispatch_status": "sent"
-        }
-        return success_response(
-            data=result, 
-            message="Customer notification dispatched successfully (simulation)."
-        )
-    except Exception as e:
-        logger.error(f"Error executing customer agent: {e}")
-        return error_response(message="Failed to dispatch customer notification.", error=str(e))
+    # Lazy local import to break circular dependency at package initialization time
+    from backend.app.registry.registry import get_agent
+
+    agent = get_agent("customer")
+    if not agent:
+        logger.error("Customer Communication Agent lookup from registry returned None.")
+        raise RuntimeError("Customer Agent not found in Registry.")
+
+    result = agent.run(
+        db=db,
+        task_data={"trip_id": payload.trip_id}
+    )
+
+    # Return formatted run sequence results directly
+    return result
