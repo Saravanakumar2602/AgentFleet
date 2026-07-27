@@ -1,13 +1,15 @@
 from pydantic import BaseModel, Field
-from typing import Optional
 
-class AnalyticsReportRequest(BaseModel):
-    days_range: int = Field(30, description="Time window for report analysis in days", gt=0)
-    vehicle_class: Optional[str] = Field(None, description="Filter for specific category (e.g. heavy-duty, light-truck)")
+class AnalyticsRequest(BaseModel):
+    vehicle_id: str = Field(..., description="Vehicle UUID identifier")
 
-class AnalyticsResponseSchema(BaseModel):
-    days_range: int
-    fleet_utilization_rate: float
-    total_trips_completed: int
-    deadhead_miles_percentage: float
-    cost_savings_estimate_usd: float
+class AnalyticsResponse(BaseModel):
+    status: str
+    agent: str = "Fleet Analytics Agent"
+    vehicle: str = Field(..., description="Vehicle registration number")
+    total_trips: int = Field(..., description="Total completed trips count")
+    average_distance: float = Field(..., description="Average travel distance in kilometers")
+    fuel_efficiency: float = Field(..., description="Computed vehicle fuel efficiency in km/L")
+    maintenance_count: int = Field(..., description="Total count of recorded maintenance events")
+    utilization: int = Field(..., description="Calculated vehicle utilization percentage (0-100)")
+    recommendation: str = Field(..., description="Rule-based operations recommendation suggestion")
