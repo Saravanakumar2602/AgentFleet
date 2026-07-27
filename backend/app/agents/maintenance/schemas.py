@@ -1,15 +1,14 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any
+from typing import Optional
 
-class TelemetryReportRequest(BaseModel):
-    vehicle_id: str = Field(..., description="Unique vehicle identifier string")
-    mileage_km: float = Field(..., description="Current odometer mileage in km", ge=0)
-    telemetry_data: Dict[str, Any] = Field(
-        ..., 
-        description="Key-value pairs of diagnostic stats (e.g. engine_temperature_c, tire_pressure_psi)"
-    )
+class MaintenanceRequest(BaseModel):
+    vehicle_id: str = Field(..., description="Unique vehicle UUID string")
 
-class TelemetryResponseSchema(BaseModel):
-    vehicle_id: str
-    evaluation_status: str
-    recommendation: str
+class MaintenanceResponse(BaseModel):
+    status: str
+    agent: str = "Maintenance Agent"
+    vehicle_id: Optional[str] = Field(None, description="Vehicle ID associated with response")
+    health_score: float = Field(..., description="Vehicle diagnostic health rating (0-100)")
+    vehicle_status: str = Field(..., description="Diagnostic state ('Healthy', 'Service Recommended', 'Maintenance Required')")
+    next_service_after_km: Optional[int] = Field(None, description="Distance remaining until next inspection is scheduled")
+    message: str = Field(..., description="Details regarding vehicle health assessment")

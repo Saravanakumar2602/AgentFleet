@@ -1,16 +1,31 @@
-from backend.app.shared.logger import logger
+from sqlalchemy.orm import Session
+import logging
+
+from backend.app.agents.maintenance.service import MaintenanceService
+
+logger = logging.getLogger("agentfleet.agents.maintenance.agent")
 
 class MaintenanceAgent:
     """
-    Orchestration setup for the Vehicle Health & Maintenance Agent.
+    Interface layer for the Vehicle Health & Maintenance Agent.
+    Bridges backend business logic with future LLM/LangGraph/CrewAI framework entries.
     """
-    def __init__(self):
-        logger.info("Initializing Vehicle Health & Maintenance Agent orchestration layer.")
+    def __init__(self, service: MaintenanceService = MaintenanceService()):
+        self.service = service
+        logger.info("MaintenanceAgent initialized.")
 
-    async def execute(self, task_data: dict) -> dict:
-        logger.info(f"Maintenance agent executing task: {task_data}")
-        return {
-            "status": "pending_implementation",
-            "agent": "maintenance",
-            "result": "Maintenance evaluation logic not implemented yet."
-        }
+    async def execute(self, db: Session, task_data: dict) -> dict:
+        """
+        Executes the agent logic programmatically.
+        Expected task_data schema: {"vehicle_id": str}
+        """
+        logger.info(f"Agent execution triggered with inputs: {task_data}")
+        vehicle_id = task_data.get("vehicle_id")
+
+        if not vehicle_id:
+            raise ValueError("Invalid execution inputs. 'vehicle_id' is required.")
+
+        return self.service.evaluate_vehicle(
+            db=db,
+            vehicle_id=vehicle_id
+        )
