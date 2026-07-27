@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field
 
-class SupervisorEscalationRequest(BaseModel):
-    incident_id: str = Field(..., description="Unique incident identifier")
-    incident_description: str = Field(..., description="Detailed explanation of the agent conflict or event")
-    failed_agent: str = Field(..., description="The name of the agent encountering issues")
+class SupervisorRequest(BaseModel):
+    workflow: str = Field(..., description="Workflow registry name key (e.g. 'fleet_delivery')")
+    pickup: str = Field(..., description="Pickup coordinates or location name")
+    destination: str = Field(..., description="Destination coordinates or location name")
+    weight: float = Field(..., description="Cargo weight in kilograms")
 
-class SupervisorResponseSchema(BaseModel):
-    incident_id: str
-    orchestrated_action: str
-    status: str
+class SupervisorChatRequest(BaseModel):
+    message: str = Field(..., description="Natural language delivery command")
+

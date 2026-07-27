@@ -5,6 +5,7 @@ from backend.app.agents.dispatch.agent import DispatchAgent
 from backend.app.agents.route.agent import RouteAgent
 from backend.app.agents.maintenance.agent import MaintenanceAgent
 from backend.app.agents.analytics.agent import AnalyticsAgent
+from backend.app.agents.customer.agent import CustomerAgent
 
 logger = logging.getLogger("agentfleet.registry")
 
@@ -13,7 +14,8 @@ AGENT_REGISTRY = {
     "dispatch": DispatchAgent(),
     "route": RouteAgent(),
     "maintenance": MaintenanceAgent(),
-    "analytics": AnalyticsAgent()
+    "analytics": AnalyticsAgent(),
+    "customer": CustomerAgent()
 }
 
 def get_agent(name: str):

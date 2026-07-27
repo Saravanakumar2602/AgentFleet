@@ -99,6 +99,12 @@ app.include_router(maintenance_router)
 # Register Analytics Agent Router at root level to support POST /analytics/report
 app.include_router(analytics_router)
 
+# Register Customer Agent Router at root level to support POST /customer/notify
+app.include_router(customer_router)
+
+# Register Supervisor Agent Router at root level to support POST /supervisor/execute
+app.include_router(supervisor_router)
+
 # Register versioned Agent Routers
 app.include_router(dispatch_router, prefix="/api/v1/dispatch", tags=["Dispatch & Allocation"])
 app.include_router(route_router, prefix="/api/v1/route", tags=["Route Intelligence"])

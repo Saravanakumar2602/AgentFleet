@@ -1,12 +1,11 @@
 from pydantic import BaseModel, Field
 
-class NotificationTriggerRequest(BaseModel):
-    customer_contact: str = Field(..., description="Email address or phone number of the target client")
-    notification_channel: str = Field("email", description="Channel choice: email, sms, WhatsApp")
-    trip_id: str = Field(..., description="The corresponding trip UUID string")
+class NotificationRequest(BaseModel):
+    trip_id: str = Field(..., description="Trip UUID identifier")
 
-class NotificationResponseSchema(BaseModel):
-    customer_contact: str
-    channel_used: str
-    message_sent: str
-    dispatch_status: str
+class NotificationResponse(BaseModel):
+    status: str
+    agent: str = "Customer Agent"
+    trip_id: str = Field(..., description="Trip UUID identifier")
+    customer_message: str = Field(..., description="Formatted tracking message")
+    notification_type: str = Field("Trip Update", description="Classification of the alert event")
