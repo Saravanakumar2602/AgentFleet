@@ -27,3 +27,11 @@ class InvalidCoordinateException(AgentFleetException):
     """
     def __init__(self, message: str = "Invalid coordinates provided."):
         super().__init__(message, status_code=400)
+
+class AIParserException(AgentFleetException):
+    """
+    Exception raised when the AI model outputs invalid JSON or fails classification parsing.
+    """
+    def __init__(self, message: str = "AI intent parsing failed."):
+        super().__init__(message, status_code=400)
+
