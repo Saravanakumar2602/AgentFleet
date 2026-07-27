@@ -1,31 +1,36 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+import logging
 
 from backend.app.database.supabase import get_db
-from backend.app.shared.response import success_response, error_response
-from backend.app.shared.logger import logger
 from backend.app.agents.dispatch.schemas import DispatchRequest
+from backend.app.agents.dispatch.service import DispatchService
+from backend.app.shared.response import build_success_response
 
+logger = logging.getLogger("agentfleet.agents.dispatch.routes")
 router = APIRouter()
+dispatch_service = DispatchService()
 
-@router.post("/allocate", tags=["Dispatch"])
-async def allocate_vehicle(payload: DispatchRequest, db: Session = Depends(get_db)):
+@router.post("/dispatch", tags=["Dispatch"])
+async def dispatch_cargo(payload: DispatchRequest, db: Session = Depends(get_db)):
     """
-    Simulates triggering vehicle allocation logic for a dispatch request.
+    Exposes POST /dispatch API.
+    All exceptions (e.g. VehicleUnavailableException, DriverUnavailableException)
+    are captured and formatted by global middleware exception handlers.
     """
-    logger.info(f"Received dispatch request for load weight: {payload.load_weight} kg")
-    try:
-        # Placeholder allocation result
-        result = {
-            "assigned_vehicle_id": "VEH-TEMP-01",
-            "driver_id": "DRIVER-TEMP-01",
-            "load_weight": payload.load_weight,
-            "destination": payload.destination
-        }
-        return success_response(
-            data=result, 
-            message="Dispatch allocation processed successfully (simulation)."
-        )
-    except Exception as e:
-        logger.error(f"Error executing dispatch agent: {e}")
-        return error_response(message="Failed to allocate vehicle.", error=str(e))
+    result = dispatch_service.allocate_dispatch(
+        db=db,
+        pickup=payload.pickup,
+        destination=payload.destination,
+        cargo_weight=payload.weight
+    )
+
+    return build_success_response(
+        data={
+            "agent": "Dispatch Agent",
+            "trip_id": result["trip_id"],
+            "vehicle": result["vehicle"],
+            "driver": result["driver"]
+        },
+        message="Vehicle assigned successfully."
+    )
