@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.core.config import settings
-from backend.app.shared.response import success_response
+from backend.app.shared.response import build_success_response, build_failure_response, build_validation_error_response
 from backend.app.shared.logger import logger
+from backend.app.shared.exceptions import AgentFleetException
 
 # Import API Routers
 from backend.app.api.health import router as health_router
@@ -42,6 +44,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============================================================================
+# Global Exception Handlers
+# ============================================================================
+
+@app.exception_handler(AgentFleetException)
+async def agentfleet_exception_handler(request, exc: AgentFleetException):
+    """
+    Catches custom application errors (e.g. VehicleUnavailableException, DriverUnavailableException).
+    Formats and returns standardized failure payload.
+    """
+    logger.warning(f"Application error intercepted: {exc.message}")
+    return build_failure_response(
+        message=exc.message,
+        status_code=exc.status_code
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    """
+    Catches Pydantic schema validation failures.
+    Translates loc tuples and error descriptors into a clean validation error list.
+    """
+    errors = exc.errors()
+    parsed_errors = []
+    for err in errors:
+        loc = err.get("loc", [])
+        field = loc[-1] if loc else "request"
+        msg = err.get("msg", "Invalid parameter value.")
+        parsed_errors.append({"field": str(field), "issue": msg})
+    
+    logger.warning(f"Request validation failed: {parsed_errors}")
+    return build_validation_error_response(
+        message="Request parameters failed schemas validation.",
+        errors=parsed_errors
+    )
+
+# ============================================================================
+# Routers Registration
+# ============================================================================
+
 # Register System Health Router
 app.include_router(health_router, prefix="/health")
 
@@ -61,7 +103,7 @@ async def health_check():
     """
     Standard health check endpoint to verify backend service status.
     """
-    return success_response(
-        data={"status": "healthy", "environment": settings.APP_ENV},
+    return build_success_response(
+        data={"environment": settings.APP_ENV},
         message="System is online and running."
     )

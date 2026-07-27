@@ -1,5 +1,6 @@
 import os
 import sys
+import uuid
 
 # Ensure backend package is in the path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -12,29 +13,34 @@ from backend.app.agents.dispatch.service import DispatchService
 def create_mock_data(db: Session):
     print("Inserting temporary mock data for driver, vehicle, and location...")
     
+    # Generate unique email to prevent unique constraint failures
+    unique_email = f"speedy_{uuid.uuid4().hex[:6]}@agentfleet.com"
+    unique_license = f"LIC-{uuid.uuid4().hex[:6].upper()}-TX"
+    unique_vehicle = f"KA-01-AF-{uuid.uuid4().hex[:4].upper()}"
+
     # 1. Insert mock user
     user_query = text("""
         INSERT INTO users (name, email, password_hash, role)
-        VALUES ('Speedy Gonzales', 'speedy@agentfleet.com', 'hashedpassword', 'Driver')
+        VALUES ('Speedy Gonzales', :email, 'hashedpassword', 'Driver')
         RETURNING id
     """)
-    user_id = db.execute(user_query).scalar()
+    user_id = db.execute(user_query, {"email": unique_email}).scalar()
     
     # 2. Insert mock driver
     driver_query = text("""
         INSERT INTO drivers (user_id, license_number, phone, experience_years, status, rating)
-        VALUES (:user_id, 'LIC-9999-TX', '+919876543210', 8, 'Available', 4.95)
+        VALUES (:user_id, :license, '+919876543210', 8, 'Available', 4.95)
         RETURNING id
     """)
-    driver_id = db.execute(driver_query, {"user_id": user_id}).scalar()
+    driver_id = db.execute(driver_query, {"user_id": user_id, "license": unique_license}).scalar()
     
     # 3. Insert mock vehicle
     vehicle_query = text("""
         INSERT INTO vehicles (vehicle_number, vehicle_type, capacity_kg, fuel_type, fuel_level, status, health_score)
-        VALUES ('KA-01-AF-9999', 'Heavy Duty Reefer', 8000.0, 'Diesel', 100.0, 'Available', 98.5)
+        VALUES (:vehicle_number, 'Heavy Duty Reefer', 8000.0, 'Diesel', 100.0, 'Available', 98.5)
         RETURNING id
     """)
-    vehicle_id = db.execute(vehicle_query).scalar()
+    vehicle_id = db.execute(vehicle_query, {"vehicle_number": unique_vehicle}).scalar()
     
     # 4. Insert mock location (Bangalore coordinates)
     location_query = text("""
@@ -64,7 +70,7 @@ def test_dispatch():
             destination="12.9820,77.6010",
             cargo_weight=2500.0
         )
-        print(f"Test 1 Success! Match result:")
+        print("Test 1 Success! Match result:")
         print(f" - Trip ID: {result['trip_id']}")
         print(f" - Vehicle: {result['vehicle']['vehicle_number']} (ID: {result['vehicle']['id']})")
         print(f" - Driver: {result['driver']['name']} (ID: {result['driver']['id']})")
@@ -79,7 +85,7 @@ def test_dispatch():
         
         print("\nTest executed successfully. Rolling back database changes to preserve state.")
     except Exception as e:
-        print(f"\n❌ Test Failed: {e}")
+        print(f"\n[ERROR] Test Failed: {e}")
         db.rollback()
         raise e
     finally:
