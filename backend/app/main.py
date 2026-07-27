@@ -6,6 +6,9 @@ from backend.app.core.config import settings
 from backend.app.shared.response import success_response
 from backend.app.shared.logger import logger
 
+# Import API Routers
+from backend.app.api.health import router as health_router
+
 # Import Agent Routers
 from backend.app.agents.dispatch import router as dispatch_router
 from backend.app.agents.route import router as route_router
@@ -38,6 +41,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register System Health Router
+app.include_router(health_router, prefix="/health")
 
 # Register Agent Routers
 app.include_router(dispatch_router, prefix="/api/v1/dispatch", tags=["Dispatch & Allocation"])

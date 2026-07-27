@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,12 +8,10 @@ class Settings(BaseSettings):
     PORT: int = 8000
     HOST: str = "0.0.0.0"
 
-    # Supabase PostgreSQL Database Settings
-    DATABASE_URL: Optional[str] = None
-
-    # Supabase API credentials
+    # Supabase credentials
     SUPABASE_URL: Optional[str] = None
     SUPABASE_KEY: Optional[str] = None
+    SUPABASE_DB_URL: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
