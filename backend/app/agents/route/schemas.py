@@ -1,15 +1,15 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
 
-class RouteOptimizationRequest(BaseModel):
-    origin: str = Field(..., description="Starting location coordinate or address")
-    destination: str = Field(..., description="Target destination coordinate or address")
-    avoid_tolls: bool = Field(False, description="Flag to indicate whether toll routes should be avoided")
-    traffic_avoidance_level: Optional[str] = Field("standard", description="Avoidance weight: low, standard, high")
+class RouteRequest(BaseModel):
+    vehicle_id: str = Field(..., description="Vehicle UUID identifier")
+    pickup: str = Field(..., description="Coordinates of the pickup location (e.g., '13.0827,80.2707')")
+    destination: str = Field(..., description="Coordinates of the destination location (e.g., '11.0168,76.9558')")
 
-class RouteResponseSchema(BaseModel):
-    origin: str
-    destination: str
-    waypoints: List[str]
+class RouteResponse(BaseModel):
+    status: str
+    agent: str = "Route Agent"
+    trip_id: str
     distance_km: float
-    duration_minutes: int
+    estimated_duration: str
+    estimated_fuel: float
+    message: str

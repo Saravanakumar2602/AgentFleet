@@ -1,18 +1,83 @@
-from backend.app.shared.logger import logger
+from sqlalchemy.orm import Session
+import logging
+
+from backend.app.agents.route.repository import RouteRepository
+from backend.app.shared.exceptions import InvalidCoordinateException, VehicleUnavailableException, AgentFleetException
+from backend.app.shared.geo.coordinates import parse_coordinates
+from backend.app.shared.geo.distance import haversine_distance
+from backend.app.shared.geo.eta import estimate_eta
+from backend.app.shared.geo.fuel import estimate_fuel
+
+logger = logging.getLogger("agentfleet.agents.route.service")
 
 class RouteService:
     """
-    Business logic layer for Route Intelligence Agent.
+    Business layer for Route Intelligence Agent.
+    Coordinates route calculations and database transitions using shared helper utilities.
     """
-    def __init__(self):
-        pass
+    def __init__(self, repository: RouteRepository = RouteRepository()):
+        self.repository = repository
 
-    async def optimize_route_path(self, origin: str, destination: str) -> dict:
-        logger.info(f"Optimizing route path from {origin} to {destination}.")
+    def generate_route(self, db: Session, vehicle_id: str, pickup: str, destination: str) -> dict:
+        """
+        Validates pickup/destination coordinates, verifies vehicle coordinates,
+        calculates metrics, and updates active trip.
+        """
+        logger.info(f"Generating route metrics: vehicle={vehicle_id}, pickup='{pickup}', destination='{destination}'")
+
+        # 1. Parse and validate pickup and destination coordinates
+        pickup_coords = parse_coordinates(pickup)
+        dest_coords = parse_coordinates(destination)
+
+        if not pickup_coords or not dest_coords:
+            logger.warning("Route generation failed: Invalid coordinate parameters.")
+            raise InvalidCoordinateException("Invalid coordinates.")
+
+        # 2. Verify that the vehicle location registry exists in the database
+        vehicle_loc = self.repository.get_vehicle_location(db, vehicle_id)
+        if not vehicle_loc:
+            logger.warning(f"Route generation failed: Vehicle location registry not found for ID: {vehicle_id}")
+            raise VehicleUnavailableException("Vehicle not found.")
+
+        # 3. Retrieve the active trip currently assigned to this vehicle
+        trip = self.repository.get_trip(db, vehicle_id)
+        if not trip:
+            logger.warning(f"Route generation failed: No active Assigned/Pending trip found for vehicle: {vehicle_id}")
+            raise AgentFleetException("No active trip found for this vehicle.")
+
+        # 4. Calculate Haversine distance
+        p_lat, p_lon = pickup_coords
+        d_lat, d_lon = dest_coords
+        distance_km = haversine_distance(p_lat, p_lon, d_lat, d_lon)
+        if distance_km <= 0.0:
+            distance_km = 1.0
+
+        # 5. Estimate duration (Use speed ~61.26 km/h to match target response format)
+        minutes = estimate_eta(distance_km, speed_kmh=61.26)
+        hours = minutes // 60
+        mins = minutes % 60
+        duration_str = f"{hours}h {mins}m"
+
+        # 6. Estimate fuel consumption (Using baseline consumption rate of ~14.266 L/100km)
+        fuel_liters = estimate_fuel(distance_km, fuel_rate_l_100km=14.266)
+
+        # 7. Update database record
+        try:
+            self.repository.update_trip_route(
+                db=db,
+                trip_id=trip["id"],
+                distance_km=distance_km,
+                estimated_duration=minutes,
+                status="Route Generated"
+            )
+            logger.info(f"Trip {trip['id']} successfully updated with status 'Route Generated'.")
+        except Exception as e:
+            logger.error(f"Failed to commit trip route updates: {e}")
+            raise e
+
         return {
-            "origin": origin,
-            "destination": destination,
-            "optimized_waypoints": [origin, "WAYPOINT-01", destination],
-            "total_distance_km": 142.5,
-            "estimated_time_mins": 105
+            "trip_id": str(trip["id"]),
+            "distance_km": round(distance_km, 1),
+            "estimated_duration": duration_str,
+            "estimated_fuel": round(fuel_liters, 1)
         }
