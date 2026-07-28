@@ -37,9 +37,15 @@ export const Fleet = () => {
     }
   }, [isError, toast, refetch]);
 
-  // Derive summary counts from live data
-  const available   = vehicles.filter(v => v.health?.vehicle_status === "Healthy" || (!v.health && !v.isError)).length;
-  const maintenance = vehicles.filter(v => v.health?.vehicle_status === "Maintenance Required").length;
+  // Derive summary counts from live data or base query fallbacks
+  const available   = vehicles.filter(v => 
+    v.health?.vehicle_status === "Healthy" || 
+    (v.status === "Available" && v.health?.vehicle_status !== "Maintenance Required")
+  ).length;
+  const maintenance = vehicles.filter(v => 
+    v.health?.vehicle_status === "Maintenance Required" || 
+    v.status === "Maintenance"
+  ).length;
   const inTransit   = vehicles.length - available - maintenance;
 
   return (
@@ -91,16 +97,16 @@ export const Fleet = () => {
         {isLoading
           ? Array.from({ length: 6 }).map((_, i) => <SkeletonVehicleCard key={i} />)
           : vehicles.map((v, i) => {
-              // Derive status from live health data
+              // Derive status from live health data or fallback to vehicle status
               const rawStatus = v.health?.vehicle_status;
               const status: keyof typeof STATUS_CONFIG =
-                rawStatus === "Maintenance Required" ? "Maintenance"
-                : rawStatus === "Service Recommended" ? "Busy"
+                rawStatus === "Maintenance Required" || v.status === "Maintenance" ? "Maintenance"
+                : rawStatus === "Service Recommended" || v.status === "Busy" ? "Busy"
                 : "Available";
 
               const cfg = STATUS_CONFIG[status];
               const StatusIcon = cfg.icon;
-              const healthScore = v.health?.health_score ?? 100;
+              const healthScore = v.health?.health_score ?? v.health_score ?? 100;
 
               const route = v.id === "v1" ? "CHN ➔ BLR"
                 : v.id === "v2" ? "CHN ➔ CJB"
