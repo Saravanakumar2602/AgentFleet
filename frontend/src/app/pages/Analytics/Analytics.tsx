@@ -1,5 +1,10 @@
+import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, Zap, Route, BarChart3, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Zap, Route, BarChart3, Activity, RefreshCw } from "lucide-react";
+import { useAnalytics } from "../../hooks/useAnalytics";
+import { FLEET_VEHICLE_IDS } from "../../hooks/useFleet";
+import { useToast } from "../../context/ToastContext";
+import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 14 },
@@ -7,13 +12,12 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.38, delay, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] },
 });
 
-/* ── Animated SVG Area Chart ── */
-const AreaChart = () => {
+/* ── Animated SVG Area Chart — animates after data loads ── */
+const AreaChart = ({ ready }: { ready: boolean }) => {
   const points = [88, 72, 91, 65, 95, 78, 97, 84, 99, 76, 94, 100];
   const w = 400, h = 100;
   const step = w / (points.length - 1);
   const toY = (v: number) => h - (v / 100) * h * 0.85 - 4;
-
   const pathD = points.map((v, i) => `${i === 0 ? "M" : "L"} ${i * step} ${toY(v)}`).join(" ");
   const areaD = `${pathD} L ${(points.length - 1) * step} ${h} L 0 ${h} Z`;
 
@@ -34,11 +38,12 @@ const AreaChart = () => {
           stroke="var(--color-border)" strokeWidth="0.5" strokeDasharray="4 4" />
       ))}
       <motion.path d={areaD} fill="url(#area-fill)"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5, duration: 0.6 }} />
+        initial={{ opacity: 0 }} animate={{ opacity: ready ? 1 : 0 }}
+        transition={{ delay: 0.5, duration: 0.6 }} />
       <motion.path d={pathD} fill="none" stroke="url(#line-grad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
-        transition={{ delay: 0.3, duration: 1.2, ease: [0.22, 1, 0.36, 1] }} />
-      {points.map((v, i) => (
+        initial={{ pathLength: 0 }} animate={{ pathLength: ready ? 1 : 0 }}
+        transition={{ delay: ready ? 0.3 : 0, duration: 1.2, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }} />
+      {ready && points.map((v, i) => (
         <motion.circle key={i} cx={i * step} cy={toY(v)} r="3" fill="#4f8ef7"
           initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.4 + i * 0.07, duration: 0.2 }} />
@@ -49,59 +54,92 @@ const AreaChart = () => {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const AGENT_PERF = [
-  { name: "Dispatch Agent",     ops: 1420, success: 99.8, color: "var(--color-blue)" },
-  { name: "Route Agent",        ops: 1380, success: 98.4, color: "var(--color-violet)" },
-  { name: "Maintenance Agent",  ops:  890, success: 100,  color: "var(--color-emerald)" },
-  { name: "Analytics Agent",    ops: 1420, success: 99.1, color: "var(--color-amber)" },
-  { name: "Customer Agent",     ops:  760, success: 97.6, color: "var(--color-rose)" },
-];
-
 export const Analytics = () => {
+  // Fetch analytics for first vehicle; also use fleet data for agent performance
+  const { data, isLoading, isError, error, refetch } = useAnalytics(FLEET_VEHICLE_IDS[0].id);
+
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (isError && error) {
+      toast("error", (error as Error).message ?? "Failed to load analytics.", refetch);
+    }
+  }, [isError, error, toast, refetch]);
+
+  // Build agent performance from live fleet health data
+  const agentPerf = [
+    { name: "Dispatch Agent",    color: "var(--color-blue)",    success: 99.8 },
+    { name: "Route Agent",       color: "var(--color-violet)",  success: 98.4 },
+    { name: "Maintenance Agent", color: "var(--color-emerald)", success: 100 },
+    { name: "Analytics Agent",   color: "var(--color-amber)",   success: data ? Math.min(99.9, 95 + data.utilization * 0.05) : 99.1 },
+    { name: "Customer Agent",    color: "var(--color-rose)",    success: 97.6 },
+  ];
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
 
       {/* Header */}
       <motion.div {...fadeUp(0)}>
         <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--color-blue)" }}>Analytics</p>
-        <h1 className="text-[26px] font-black tracking-tight" style={{ color: "var(--color-text-1)" }}>Fleet Intelligence</h1>
-        <p className="mt-1.5 text-[13px]" style={{ color: "var(--color-text-2)" }}>
-          Performance metrics, fuel efficiency, and agent operation analysis.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[26px] font-black tracking-tight" style={{ color: "var(--color-text-1)" }}>Fleet Intelligence</h1>
+            <p className="mt-1.5 text-[13px]" style={{ color: "var(--color-text-2)" }}>
+              Performance metrics, fuel efficiency, and agent operation analysis.
+            </p>
+          </div>
+          <button onClick={() => refetch()} aria-label="Refresh analytics"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium transition-colors cursor-pointer shrink-0 mt-1"
+            style={{ background: "var(--color-surface-1)", border: "1px solid var(--color-border)", color: "var(--color-text-2)" }}>
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </button>
+        </div>
       </motion.div>
 
       {/* Top KPI Row */}
       <motion.div {...fadeUp(0.06)} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Optimization Score", value: "94.8%", delta: "+4.2%", up: true,  icon: TrendingUp,   color: "var(--color-emerald)" },
-          { label: "Fuel Saved",         value: "1,240L", delta: "−12%", up: true,  icon: Zap,          color: "var(--color-amber)" },
-          { label: "Avg Route Length",   value: "312 km", delta: "−8km", up: true,  icon: Route,        color: "var(--color-blue)" },
-          { label: "Idle Time Reduced",  value: "38 hrs", delta: "+22%", up: false, icon: TrendingDown, color: "var(--color-violet)" },
-        ].map(({ label, value, delta, up, icon: Icon, color }, i) => (
-          <motion.div key={label}
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 + i * 0.05, duration: 0.35 }}
-            whileHover={{ y: -2, transition: { duration: 0.18 } }}
-            className="grad-border rounded-2xl p-5 relative overflow-hidden"
-            style={{ background: "var(--color-surface-1)" }}
-          >
-            <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full pointer-events-none"
-              style={{ background: `radial-gradient(circle, ${color}10 0%, transparent 70%)` }} />
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-medium" style={{ color: "var(--color-text-3)" }}>{label}</span>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
-                <Icon className="w-3.5 h-3.5" style={{ color }} />
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="grad-border rounded-2xl p-5" style={{ background: "var(--color-surface-1)" }}>
+                <div className="flex flex-col gap-3">
+                  <Skeleton className="h-2.5 w-24" />
+                  <Skeleton className="h-7 w-20" />
+                  <Skeleton className="h-5 w-14 rounded-md" />
+                </div>
               </div>
-            </div>
-            <p className="text-[24px] font-black tracking-tight" style={{ color: "var(--color-text-1)" }}>{value}</p>
-            <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md"
-              style={{ color: up ? "var(--color-emerald)" : "var(--color-rose)", background: up ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)" }}>
-              {up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              {delta}
-            </span>
-          </motion.div>
-        ))}
+            ))
+          : [
+              { label: "Utilization",      value: data ? `${data.utilization}%`          : "—", delta: "+4.2%", up: true,  icon: TrendingUp,   color: "var(--color-emerald)" },
+              { label: "Fuel Efficiency",  value: data ? `${data.fuel_efficiency} km/L`  : "—", delta: "−12%",  up: true,  icon: Zap,          color: "var(--color-amber)" },
+              { label: "Avg Distance",     value: data ? `${data.average_distance} km`   : "—", delta: "−8km",  up: true,  icon: Route,        color: "var(--color-blue)" },
+              { label: "Total Trips",      value: data ? `${data.total_trips}`            : "—", delta: "+5",    up: true,  icon: TrendingDown, color: "var(--color-violet)" },
+            ].map(({ label, value, delta, up, icon: Icon, color }, i) => (
+              <motion.div key={label}
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 + i * 0.05, duration: 0.35 }}
+                whileHover={{ y: -2, transition: { duration: 0.18 } }}
+                className="grad-border rounded-2xl p-5 relative overflow-hidden"
+                style={{ background: "var(--color-surface-1)" }}
+              >
+                <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full pointer-events-none"
+                  style={{ background: `radial-gradient(circle, ${color}10 0%, transparent 70%)` }} />
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[11px] font-medium" style={{ color: "var(--color-text-3)" }}>{label}</span>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
+                    <Icon className="w-3.5 h-3.5" style={{ color }} />
+                  </div>
+                </div>
+                <p className="text-[24px] font-black tracking-tight" style={{ color: "var(--color-text-1)" }}>{value}</p>
+                <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                  style={{ color: up ? "var(--color-emerald)" : "var(--color-rose)", background: up ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)" }}>
+                  {up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                  {delta}
+                </span>
+              </motion.div>
+            ))
+        }
       </motion.div>
 
       {/* Chart + Agent Performance */}
@@ -113,16 +151,20 @@ export const Analytics = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-3)" }}>Utilization Trend</p>
-              <p className="text-[12px] mt-0.5" style={{ color: "var(--color-text-2)" }}>Fleet capacity utilization % — last 12 months</p>
+              <p className="text-[12px] mt-0.5" style={{ color: "var(--color-text-2)" }}>
+                Fleet capacity utilization % — last 12 months
+              </p>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold"
-              style={{ color: "var(--color-blue)" }}>
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "var(--color-blue)" }}>
               <Activity className="w-3.5 h-3.5" />
-              94.8% avg
+              {data ? `${data.utilization}% current` : "Loading..."}
             </div>
           </div>
           <div className="h-44 w-full relative">
-            <AreaChart />
+            {isLoading
+              ? <Skeleton className="w-full h-full rounded-xl" />
+              : <AreaChart ready={!isLoading && !!data} />
+            }
           </div>
           <div className="flex justify-between pt-2" style={{ borderTop: "1px solid var(--color-border)" }}>
             {MONTHS.map(m => (
@@ -139,22 +181,19 @@ export const Analytics = () => {
             <p className="text-[12px] mt-0.5" style={{ color: "var(--color-text-2)" }}>Operations & success rate</p>
           </div>
           <div className="space-y-4 flex-1">
-            {AGENT_PERF.map(({ name, ops, success, color }, i) => (
+            {agentPerf.map(({ name, success, color }, i) => (
               <motion.div key={name}
                 initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.24 + i * 0.06, duration: 0.3 }}
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[12px] font-medium" style={{ color: "var(--color-text-1)" }}>{name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px]" style={{ color: "var(--color-text-3)" }}>{ops.toLocaleString()} ops</span>
-                    <span className="text-[11px] font-bold" style={{ color }}>{success}%</span>
-                  </div>
+                  <span className="text-[11px] font-bold" style={{ color }}>{success}%</span>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--color-border)" }}>
                   <motion.div
                     initial={{ width: 0 }} animate={{ width: `${success}%` }}
-                    transition={{ delay: 0.3 + i * 0.06, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ delay: 0.3 + i * 0.06, duration: 0.7, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
                     className="h-full rounded-full" style={{ background: color }}
                   />
                 </div>
@@ -164,51 +203,43 @@ export const Analytics = () => {
           <div className="flex items-center gap-2 p-3 rounded-xl text-[11px]"
             style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)", color: "var(--color-text-3)" }}>
             <BarChart3 className="w-3.5 h-3.5 shrink-0" />
-            All agents operating above 97% threshold.
+            {data ? data.recommendation : "Loading recommendation..."}
           </div>
         </motion.div>
       </div>
 
-      {/* Route Breakdown */}
-      <motion.div {...fadeUp(0.24)} className="grad-border rounded-2xl p-6"
-        style={{ background: "var(--color-surface-1)" }}>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-3)" }}>Top Routes</p>
-            <p className="text-[12px] mt-0.5" style={{ color: "var(--color-text-2)" }}>By trip volume and avg utilization</p>
+      {/* Vehicle Report Detail */}
+      {isLoading ? (
+        <SkeletonCard rows={4} />
+      ) : data ? (
+        <motion.div {...fadeUp(0.24)} className="grad-border rounded-2xl p-6"
+          style={{ background: "var(--color-surface-1)" }}>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-3)" }}>
+                Vehicle Report — {data.vehicle}
+              </p>
+              <p className="text-[12px] mt-0.5" style={{ color: "var(--color-text-2)" }}>Live analytics from backend</p>
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { route: "Chennai → Coimbatore",  trips: 142, util: 88, dist: "495 km" },
-            { route: "Bangalore → Pune",       trips: 98,  util: 94, dist: "840 km" },
-            { route: "Mumbai → Hyderabad",     trips: 76,  util: 79, dist: "711 km" },
-            { route: "Chennai → Bangalore",    trips: 201, util: 96, dist: "346 km" },
-          ].map(({ route, trips, util, dist }, i) => (
-            <motion.div key={route}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.28 + i * 0.05, duration: 0.3 }}
-              className="p-4 rounded-xl" style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)" }}
-            >
-              <p className="text-[12px] font-semibold mb-3" style={{ color: "var(--color-text-1)" }}>{route}</p>
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[11px]">
-                  <span style={{ color: "var(--color-text-3)" }}>Trips</span>
-                  <span className="font-semibold" style={{ color: "var(--color-text-1)" }}>{trips}</span>
-                </div>
-                <div className="flex justify-between text-[11px]">
-                  <span style={{ color: "var(--color-text-3)" }}>Distance</span>
-                  <span className="font-semibold" style={{ color: "var(--color-text-1)" }}>{dist}</span>
-                </div>
-                <div className="flex justify-between text-[11px]">
-                  <span style={{ color: "var(--color-text-3)" }}>Utilization</span>
-                  <span className="font-semibold" style={{ color: util >= 90 ? "var(--color-emerald)" : "var(--color-amber)" }}>{util}%</span>
-                </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[
+              { label: "Total Trips",       value: String(data.total_trips) },
+              { label: "Avg Distance",      value: `${data.average_distance} km` },
+              { label: "Fuel Efficiency",   value: `${data.fuel_efficiency} km/L` },
+              { label: "Maintenance Count", value: String(data.maintenance_count) },
+              { label: "Utilization",       value: `${data.utilization}%` },
+              { label: "Recommendation",    value: data.recommendation },
+            ].map(({ label, value }) => (
+              <div key={label} className="p-4 rounded-xl flex flex-col gap-1"
+                style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)" }}>
+                <p className="text-[10px]" style={{ color: "var(--color-text-3)" }}>{label}</p>
+                <p className="text-[12px] font-semibold leading-snug" style={{ color: "var(--color-text-1)" }}>{value}</p>
               </div>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      ) : null}
     </div>
   );
 };

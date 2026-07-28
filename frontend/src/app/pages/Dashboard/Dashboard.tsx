@@ -1,10 +1,14 @@
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
   Sparkles, Activity, Play, ArrowRight, ShieldCheck,
   AlertCircle, Zap, GitFork, MessageSquare, Truck,
-  CheckCircle2, Clock, TrendingUp,
+  CheckCircle2, Clock, TrendingUp, WifiOff,
 } from "lucide-react";
+import { useDashboard } from "../../hooks/useDashboard";
+import { useToast } from "../../context/ToastContext";
+import { Skeleton } from "../../components/ui/Skeleton";
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 16 },
@@ -34,7 +38,7 @@ const HealthRing = ({ score }: { score: number }) => {
           r={nr} cx={r} cy={r}
           initial={{ strokeDashoffset: circ }}
           animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1.4, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 1.4, delay: 0.3, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
         />
       </svg>
       <div className="absolute flex flex-col items-center">
@@ -45,7 +49,6 @@ const HealthRing = ({ score }: { score: number }) => {
   );
 };
 
-/* ── Stat Pill ── */
 const StatPill = ({ label, value, delta, color }: { label: string; value: string; delta?: string; color: string }) => (
   <div className="flex flex-col gap-1">
     <span className="text-[11px] font-medium" style={{ color: "var(--color-text-3)" }}>{label}</span>
@@ -68,13 +71,36 @@ const ACTIVITY = [
 ];
 
 const QUICK_ACTIONS = [
-  { to: "/workflow", icon: Play,         label: "Trigger Workflow",   color: "var(--color-blue)" },
+  { to: "/workflow", icon: Play,          label: "Trigger Workflow",  color: "var(--color-blue)" },
   { to: "/chat",     icon: MessageSquare, label: "Open AI Chat",      color: "var(--color-violet)" },
   { to: "/fleet",    icon: Truck,         label: "Fleet Registry",    color: "var(--color-emerald)" },
   { to: "/analytics",icon: TrendingUp,    label: "View Analytics",    color: "var(--color-amber)" },
 ];
 
 export const Dashboard = () => {
+  const { isOnline, isDbConnected, stats, isLoading, isError, error, refetch } = useDashboard();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (isError && error) {
+      toast("error", (error as Error).message ?? "Backend unreachable.", refetch);
+    }
+  }, [isError, error, toast, refetch]);
+
+  const systemStatus = isLoading
+    ? "Connecting..."
+    : isError
+    ? "Backend offline"
+    : isOnline
+    ? "All systems operational"
+    : "Degraded";
+
+  const statusColor = isLoading
+    ? "var(--color-text-3)"
+    : isError
+    ? "var(--color-rose)"
+    : "var(--color-emerald)";
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
 
@@ -88,27 +114,37 @@ export const Dashboard = () => {
             Good morning, Admin.
           </h1>
           <p className="mt-2 text-[13px] leading-relaxed max-w-md" style={{ color: "var(--color-text-2)" }}>
-            Your fleet is running at peak efficiency. 9 vehicles active, 0 critical alerts.
+            Your fleet is running at peak efficiency. {stats?.activeVehicles ?? 9} vehicles active, {stats?.serviceDueCount ?? 0} critical alerts.
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold shrink-0"
-          style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)", color: "var(--color-emerald)" }}>
-          <Activity className="w-3 h-3" />
-          All systems operational
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold shrink-0"
+          style={{ background: `${statusColor}12`, border: `1px solid ${statusColor}28`, color: statusColor }}
+          aria-live="polite"
+        >
+          {isError ? <WifiOff className="w-3 h-3" /> : <Activity className="w-3 h-3" />}
+          {systemStatus}
         </div>
       </motion.div>
 
       {/* ── Top Stats Row ── */}
       <motion.div {...fadeUp(0.06)} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Active Vehicles",   value: "9",      delta: "+2",    color: "var(--color-emerald)" },
-          { label: "Trips Today",       value: "14",     delta: "+5",    color: "var(--color-blue)" },
-          { label: "Fuel Saved",        value: "1,240L", delta: "−12%",  color: "var(--color-amber)" },
-          { label: "Avg ETA Accuracy",  value: "97.3%",  delta: "+1.2%", color: "var(--color-violet)" },
+          { label: "Active Vehicles",  value: stats ? String(stats.activeVehicles) : "9",      delta: stats?.activeVehiclesDelta ?? "+2",    color: "var(--color-emerald)" },
+          { label: "Trips Today",      value: stats ? String(stats.tripsToday) : "14",         delta: stats?.tripsTodayDelta ?? "+5",    color: "var(--color-blue)" },
+          { label: "Fuel Saved",       value: stats?.fuelSaved ?? "1,240L",                    delta: stats?.fuelSavedDelta ?? "−12%",  color: "var(--color-amber)" },
+          { label: "Avg ETA Accuracy", value: stats?.avgEtaAccuracy ?? "97.3%",                delta: stats?.avgEtaAccuracyDelta ?? "+1.2%", color: "var(--color-violet)" },
         ].map((s) => (
           <div key={s.label} className="grad-border rounded-xl p-5 relative overflow-hidden"
             style={{ background: "var(--color-surface-1)" }}>
-            <StatPill {...s} />
+            {isLoading ? (
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-2.5 w-24" />
+                <Skeleton className="h-7 w-16" />
+              </div>
+            ) : (
+              <StatPill {...s} />
+            )}
           </div>
         ))}
       </motion.div>
@@ -119,7 +155,6 @@ export const Dashboard = () => {
         {/* Fleet Health */}
         <motion.div {...fadeUp(0.1)} className="grad-border rounded-2xl p-6 flex flex-col gap-5 relative overflow-hidden"
           style={{ background: "var(--color-surface-1)" }}>
-          {/* Ambient glow */}
           <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full pointer-events-none"
             style={{ background: "radial-gradient(circle, rgba(79,142,247,0.12) 0%, transparent 70%)" }} />
           <div>
@@ -127,20 +162,40 @@ export const Dashboard = () => {
             <p className="text-[12px] mt-0.5" style={{ color: "var(--color-text-2)" }}>Real-time diagnostics</p>
           </div>
           <div className="flex items-center gap-6">
-            <HealthRing score={92} />
+            {isLoading ? (
+              <Skeleton className="w-[104px] h-[104px] rounded-full" />
+            ) : (
+              <HealthRing score={stats?.fleetHealthScore ?? 92} />
+            )}
             <div className="space-y-3.5">
               <div className="flex items-start gap-2.5">
                 <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--color-emerald)" }} />
                 <div>
-                  <p className="text-[12px] font-semibold" style={{ color: "var(--color-text-1)" }}>9 Operational</p>
-                  <p className="text-[11px]" style={{ color: "var(--color-text-3)" }}>Vehicles active</p>
+                  {isLoading ? (
+                    <Skeleton className="h-4 w-24" />
+                  ) : (
+                    <>
+                      <p className="text-[12px] font-semibold" style={{ color: "var(--color-text-1)" }}>
+                        {stats?.operationalVehiclesCount ?? 9} Operational
+                      </p>
+                      <p className="text-[11px]" style={{ color: "var(--color-text-3)" }}>Vehicles active</p>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--color-amber)" }} />
                 <div>
-                  <p className="text-[12px] font-semibold" style={{ color: "var(--color-text-1)" }}>1 Service Due</p>
-                  <p className="text-[11px]" style={{ color: "var(--color-text-3)" }}>Scheduled maintenance</p>
+                  {isLoading ? (
+                    <Skeleton className="h-4 w-24" />
+                  ) : (
+                    <>
+                      <p className="text-[12px] font-semibold" style={{ color: "var(--color-text-1)" }}>
+                        {stats?.serviceDueCount ?? 1} Service Due
+                      </p>
+                      <p className="text-[11px]" style={{ color: "var(--color-text-3)" }}>Scheduled maintenance</p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -150,7 +205,8 @@ export const Dashboard = () => {
           </p>
         </motion.div>
 
-        {/* AI Supervisor */}
+
+        {/* AI Supervisor — live backend status */}
         <motion.div {...fadeUp(0.14)} className="grad-border rounded-2xl p-6 flex flex-col gap-4 relative overflow-hidden"
           style={{ background: "var(--color-surface-1)" }}>
           <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full pointer-events-none"
@@ -166,21 +222,32 @@ export const Dashboard = () => {
             </div>
           </div>
           <div className="space-y-2.5 flex-1">
-            {[
-              { k: "Model",    v: "llama-3.3-70b-versatile", highlight: false },
-              { k: "Adapter",  v: "Groq SDK",                highlight: true },
-              { k: "Memory",   v: "3 sessions cached",       highlight: false },
-              { k: "Latency",  v: "~320ms avg",              highlight: false },
-            ].map(({ k, v, highlight }) => (
-              <div key={k} className="flex items-center justify-between py-2"
-                style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
-                <span className="text-[12px]" style={{ color: "var(--color-text-3)" }}>{k}</span>
-                <span className={`text-[12px] font-semibold ${highlight ? "px-2 py-0.5 rounded-md" : ""}`}
-                  style={highlight ? { color: "var(--color-emerald)", background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)" } : { color: "var(--color-text-1)" }}>
-                  {v}
-                </span>
-              </div>
-            ))}
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                  <Skeleton className="h-2.5 w-20" />
+                  <Skeleton className="h-2.5 w-28" />
+                </div>
+              ))
+            ) : (
+              [
+                { k: "Model",    v: "llama-3.3-70b-versatile", highlight: false },
+                { k: "Adapter",  v: "Groq SDK",                highlight: true },
+                { k: "Backend",  v: isOnline ? "Online" : "Offline", highlight: isOnline },
+                { k: "Database", v: isDbConnected ? "Connected" : "Unavailable", highlight: isDbConnected },
+              ].map(({ k, v, highlight }) => (
+                <div key={k} className="flex items-center justify-between py-2"
+                  style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
+                  <span className="text-[12px]" style={{ color: "var(--color-text-3)" }}>{k}</span>
+                  <span className={`text-[12px] font-semibold ${highlight ? "px-2 py-0.5 rounded-md" : ""}`}
+                    style={highlight
+                      ? { color: "var(--color-emerald)", background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.2)" }
+                      : { color: "var(--color-text-1)" }}>
+                    {v}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
           <Link to="/chat">
             <button className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[12px] font-semibold transition-all cursor-pointer hover:opacity-90"
@@ -205,10 +272,10 @@ export const Dashboard = () => {
           </div>
           <div className="space-y-2.5 flex-1">
             {[
-              { k: "Last Run",      v: "5.1s ago",  ok: true },
-              { k: "Success Rate",  v: "100%",      ok: true },
-              { k: "Agents Active", v: "5 / 5",     ok: true },
-              { k: "Rollback",      v: "Secure",    ok: true },
+              { k: "Last Run",      v: "On demand",  ok: true },
+              { k: "Success Rate",  v: "100%",       ok: true },
+              { k: "Agents Active", v: "5 / 5",      ok: true },
+              { k: "Rollback",      v: "Secure",     ok: true },
             ].map(({ k, v, ok }) => (
               <div key={k} className="flex items-center justify-between py-2"
                 style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
@@ -241,8 +308,7 @@ export const Dashboard = () => {
               <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-3)" }}>Recent Activity</p>
               <p className="text-[12px] mt-0.5" style={{ color: "var(--color-text-2)" }}>Live system event stream</p>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold"
-              style={{ color: "var(--color-emerald)" }}>
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "var(--color-emerald)" }}>
               <span className="relative w-2 h-2">
                 <span className="absolute inset-0 rounded-full animate-ping" style={{ background: "var(--color-emerald)", opacity: 0.4 }} />
                 <span className="relative block w-2 h-2 rounded-full" style={{ background: "var(--color-emerald)" }} />
@@ -256,7 +322,7 @@ export const Dashboard = () => {
                 key={i}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.28 + i * 0.07, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ delay: 0.28 + i * 0.07, duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
                 className="flex items-start gap-3.5 p-3 rounded-xl transition-colors group cursor-default"
                 style={{ borderBottom: i < ACTIVITY.length - 1 ? "1px solid var(--color-border-subtle)" : "none" }}
               >
@@ -306,7 +372,7 @@ export const Dashboard = () => {
           <div className="flex items-center gap-2 p-3 rounded-xl text-[11px]"
             style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)", color: "var(--color-text-3)" }}>
             <Clock className="w-3.5 h-3.5 shrink-0" />
-            Last workflow ran 5.1s ago — all agents healthy.
+            {isLoading ? "Checking backend status..." : isOnline ? "Backend online · All agents healthy." : "Backend unreachable — check server."}
           </div>
         </motion.div>
       </div>
