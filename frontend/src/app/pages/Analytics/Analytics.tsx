@@ -1,10 +1,66 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Zap, Route, BarChart3, Activity, RefreshCw } from "lucide-react";
 import { useAnalytics } from "../../hooks/useAnalytics";
 import { FLEET_VEHICLE_IDS } from "../../hooks/useFleet";
 import { useToast } from "../../context/ToastContext";
 import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
+
+const AnimatedCounter = ({ value, duration = 850 }: { value: string | number; duration?: number }) => {
+  const numVal = typeof value === "number" ? value : parseFloat(value.replace(/[^0-9.]/g, ""));
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (isNaN(numVal) || numVal === 0) return;
+    let start = 0;
+    const end = numVal;
+    const incrementTime = 16;
+    const step = Math.max(0.1, end / (duration / incrementTime));
+
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= end) {
+        clearInterval(timer);
+        setCount(end);
+      } else {
+        setCount(start);
+      }
+    }, incrementTime);
+
+    return () => clearInterval(timer);
+  }, [numVal, duration]);
+
+  if (typeof value === "string") {
+    const suffix = value.replace(/[0-9.]/g, "");
+    const decimals = numVal % 1 === 0 ? 0 : 1;
+    return <span>{count.toFixed(decimals)}{suffix}</span>;
+  }
+
+  return <span>{Math.round(count)}</span>;
+};
+
+const Sparkline = ({ color, index }: { color: string; index: number }) => {
+  const paths = [
+    "M2 18 C 12 12, 18 4, 30 8 C 42 12, 48 2, 62 2", // Utilization
+    "M2 18 C 12 16, 20 8, 30 14 C 40 18, 50 6, 62 4", // Fuel
+    "M2 12 C 15 2, 28 18, 40 10 C 50 2, 58 14, 62 6",  // Avg Distance
+    "M2 18 C 15 15, 25 2, 40 12 C 50 18, 58 4, 62 2"   // Trips
+  ];
+  const path = paths[index % paths.length];
+  
+  return (
+    <svg className="w-16 h-8 absolute bottom-3 right-3 opacity-60 pointer-events-none" viewBox="0 0 64 20" fill="none">
+      <path d={path} stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={`${path} L 62 20 L 2 20 Z`} fill={`url(#spark-grad-${index})`} opacity="0.1" />
+      <defs>
+        <linearGradient id={`spark-grad-${index}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} />
+          <stop offset="100%" stopColor="transparent" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+};
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 14 },
@@ -114,31 +170,39 @@ export const Analytics = () => {
               { label: "Fuel Efficiency",  value: data ? `${data.fuel_efficiency} km/L`  : "—", delta: "−12%",  up: true,  icon: Zap,          color: "var(--color-amber)" },
               { label: "Avg Distance",     value: data ? `${data.average_distance} km`   : "—", delta: "−8km",  up: true,  icon: Route,        color: "var(--color-blue)" },
               { label: "Total Trips",      value: data ? `${data.total_trips}`            : "—", delta: "+5",    up: true,  icon: TrendingDown, color: "var(--color-violet)" },
-            ].map(({ label, value, delta, up, icon: Icon, color }, i) => (
-              <motion.div key={label}
-                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.08 + i * 0.05, duration: 0.35 }}
-                whileHover={{ y: -2, transition: { duration: 0.18 } }}
-                className="grad-border rounded-2xl p-5 relative overflow-hidden"
-                style={{ background: "var(--color-surface-1)" }}
-              >
-                <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full pointer-events-none"
-                  style={{ background: `radial-gradient(circle, ${color}10 0%, transparent 70%)` }} />
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[11px] font-medium" style={{ color: "var(--color-text-3)" }}>{label}</span>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                    style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
-                    <Icon className="w-3.5 h-3.5" style={{ color }} />
+            ].map(({ label, value, delta, up, icon: Icon, color }, i) => {
+              const hasValue = value !== "—" && value !== undefined && value !== null;
+              return (
+                <motion.div key={label}
+                  initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.08 + i * 0.05, duration: 0.35 }}
+                  whileHover={{ y: -4, scale: 1.01, boxShadow: `0 12px 30px -10px ${color}15` }}
+                  className="grad-border rounded-2xl p-5 relative overflow-hidden cursor-default group"
+                  style={{ background: "var(--color-surface-1)" }}
+                >
+                  <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full pointer-events-none"
+                    style={{ background: `radial-gradient(circle, ${color}10 0%, transparent 70%)` }} />
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-medium" style={{ color: "var(--color-text-3)" }}>{label}</span>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors group-hover:bg-zinc-800/40"
+                      style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
+                      <Icon className="w-3.5 h-3.5" style={{ color }} />
+                    </div>
                   </div>
-                </div>
-                <p className="text-[24px] font-black tracking-tight" style={{ color: "var(--color-text-1)" }}>{value}</p>
-                <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md"
-                  style={{ color: up ? "var(--color-emerald)" : "var(--color-rose)", background: up ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)" }}>
-                  {up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  {delta}
-                </span>
-              </motion.div>
-            ))
+                  <p className="text-[24px] font-black tracking-tight" style={{ color: "var(--color-text-1)" }}>
+                    {hasValue ? <AnimatedCounter value={value} /> : "—"}
+                  </p>
+                  
+                  {hasValue && <Sparkline color={color} index={i} />}
+
+                  <span className="inline-flex items-center gap-1 mt-2.5 text-[10px] font-semibold px-2 py-0.5 rounded-md relative z-10"
+                    style={{ color: up ? "var(--color-emerald)" : "var(--color-rose)", background: up ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)" }}>
+                    {up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {delta}
+                  </span>
+                </motion.div>
+              );
+            })
         }
       </motion.div>
 

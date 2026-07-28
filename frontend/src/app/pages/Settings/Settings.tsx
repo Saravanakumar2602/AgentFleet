@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Key, Eye, EyeOff, Shield, Cpu, Sliders, CheckCircle2 } from "lucide-react";
+import { useDashboard } from "../../hooks/useDashboard";
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 12 },
@@ -20,6 +21,8 @@ const Field = ({ label, children, hint }: { label: string; children: React.React
 
 export const Settings = () => {
   const [showKey, setShowKey] = useState(false);
+  const { isOnline, isDbConnected } = useDashboard();
+
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -124,17 +127,28 @@ export const Settings = () => {
         <div className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { k: "Backend",    v: "FastAPI 0.115 · Python 3.12" },
-              { k: "Database",   v: "Supabase (PostgreSQL 15)" },
-              { k: "AI Layer",   v: "CrewAI + LangGraph" },
-              { k: "Frontend",   v: "React 19 · Vite 8 · TailwindCSS 4" },
-              { k: "Deployment", v: "Docker (containerized)" },
-              { k: "Version",    v: "AgentFleet v1.0.0-alpha" },
-            ].map(({ k, v }) => (
+              { k: "Backend Connection",  v: isOnline ? "Online" : "Offline", status: isOnline },
+              { k: "Database Connection", v: isDbConnected ? "Connected" : "Unavailable", status: isDbConnected },
+              { k: "Backend Tech Stack",  v: "FastAPI 0.115 · Python 3.12" },
+              { k: "Database Engine",     v: "Supabase (PostgreSQL 15)" },
+              { k: "AI Core Layer",       v: "CrewAI + LangGraph" },
+              { k: "Inference Latency",   v: "~320ms (Groq adapter)" },
+              { k: "Frontend Platform",   v: "React 19 · Vite 8" },
+              { k: "System Version",      v: "AgentFleet v1.0.0-stable" },
+            ].map(({ k, v, status }) => (
               <div key={k} className="flex items-center justify-between px-4 py-3 rounded-xl"
                 style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)" }}>
                 <span className="text-[11px]" style={{ color: "var(--color-text-3)" }}>{k}</span>
-                <span className="text-[11px] font-semibold" style={{ color: "var(--color-text-1)" }}>{v}</span>
+                <span className="text-[11px] font-semibold flex items-center gap-1.5" 
+                  style={{ color: status !== undefined ? (status ? "var(--color-emerald)" : "var(--color-rose)") : "var(--color-text-1)" }}>
+                  {status !== undefined && (
+                    <span className="relative flex h-1.5 w-1.5">
+                      {status && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+                      <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${status ? "bg-emerald-500" : "bg-rose-500"}`}></span>
+                    </span>
+                  )}
+                  {v}
+                </span>
               </div>
             ))}
           </div>

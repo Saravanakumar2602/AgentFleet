@@ -99,8 +99,7 @@ export const Workflow = () => {
             {/* Animated progress fill */}
             {active >= 0 && (
               <motion.div
-                className="absolute left-[19px] top-5 w-px origin-top"
-                style={{ background: "linear-gradient(to bottom, #4f8ef7, #7c6af7)" }}
+                className="absolute left-[19px] top-5 w-px origin-top animated-connector"
                 initial={{ height: 0 }}
                 animate={{ height: `${Math.min(100, (active / (STEPS.length - 1)) * 100)}%` }}
                 transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
@@ -118,19 +117,25 @@ export const Workflow = () => {
                   {/* Node */}
                   <motion.div
                     animate={{
-                      scale: isActive ? 1.1 : 1,
-                      borderColor: isActive ? step.color : isCompleted ? "rgba(52,211,153,0.6)" : "var(--color-border)",
+                      scale: isActive ? 1.15 : 1,
+                      borderColor: isActive ? step.color : isCompleted ? "var(--color-emerald)" : "var(--color-border)",
                     }}
-                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2"
-                    style={{ background: isCompleted ? "rgba(52,211,153,0.08)" : isActive ? `${step.color}12` : "var(--color-surface-2)" }}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 relative ${isActive ? "glow-blue shadow-lg" : ""}`}
+                    style={{ 
+                      background: isCompleted ? "rgba(16, 185, 129, 0.08)" : isActive ? "rgba(59, 130, 246, 0.08)" : "var(--color-surface-2)",
+                      boxShadow: isActive ? `0 0 20px -2px ${step.color}40` : undefined
+                    }}
                   >
+                    {isActive && (
+                      <span className="absolute inset-0 rounded-full pulse-dot animate-pulse" style={{ color: step.color }} />
+                    )}
                     {isCompleted
-                      ? <CheckCircle2 className="w-4 h-4" style={{ color: "var(--color-emerald)" }} />
+                      ? <CheckCircle2 className="w-4 h-4 relative z-10" style={{ color: "var(--color-emerald)" }} />
                       : isActive
-                        ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}>
+                        ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="relative z-10">
                             <Icon className="w-4 h-4" style={{ color: step.color }} />
                           </motion.div>
-                        : <Icon className="w-4 h-4" style={{ color: isPending ? "var(--color-text-3)" : step.color }} />
+                        : <Icon className="w-4 h-4 relative z-10" style={{ color: isPending ? "var(--color-text-3)" : step.color }} />
                     }
                   </motion.div>
 
@@ -159,6 +164,7 @@ export const Workflow = () => {
                       <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: "100%" }}
                         className="h-0.5 rounded-full mt-2" style={{ background: `linear-gradient(to right, ${step.color}, transparent)` }} />
                     )}
+
                   </motion.div>
                 </div>
               );
