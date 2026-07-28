@@ -56,7 +56,10 @@ def get_db() -> Generator:
     try:
         yield db
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception as close_err:
+            logger.warning(f"Error closing database session: {close_err}")
 
 def get_supabase_client():
     """

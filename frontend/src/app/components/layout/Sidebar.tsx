@@ -30,8 +30,8 @@ export const Sidebar = () => {
       {/* Logo */}
       <div className="h-14 flex items-center justify-between px-4 shrink-0" style={{ borderBottom: "1px solid var(--color-border)" }}>
         <div className="flex items-center gap-2.5 overflow-hidden">
-          <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center text-white font-black text-[11px] tracking-tighter"
-            style={{ background: "linear-gradient(135deg, #4f8ef7, #7c6af7)", boxShadow: "0 0 16px rgba(79,142,247,0.4)" }}>
+          <div className="w-7.5 h-7.5 rounded-lg shrink-0 flex items-center justify-center text-white font-black text-[12px] tracking-tighter"
+            style={{ background: "linear-gradient(135deg, var(--color-blue-light), var(--color-violet))", boxShadow: "0 0 16px rgba(59, 130, 246, 0.3)" }}>
             AF
           </div>
           <AnimatePresence initial={false}>
@@ -39,8 +39,7 @@ export const Sidebar = () => {
               <motion.span
                 initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
                 transition={{ duration: 0.18 }}
-                className="text-[13px] font-semibold tracking-tight whitespace-nowrap"
-                style={{ color: "var(--color-text-1)" }}
+                className="text-[13px] font-bold tracking-tight whitespace-nowrap bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent"
               >
                 AgentFleet
               </motion.span>
@@ -49,7 +48,7 @@ export const Sidebar = () => {
         </div>
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="w-5 h-5 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0"
+          className="w-5 h-5 flex items-center justify-center rounded-md transition-colors cursor-pointer shrink-0 hover:bg-zinc-800/40"
           style={{ color: "var(--color-text-3)" }}
         >
           {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
@@ -63,23 +62,23 @@ export const Sidebar = () => {
           return (
             <Link key={path} to={path}>
               <div className={cn(
-                "relative flex items-center gap-3 px-2.5 py-2 rounded-lg transition-all duration-150 cursor-pointer group",
+                "relative flex items-center gap-3 px-2.5 py-2.5 rounded-lg transition-all duration-150 cursor-pointer group",
                 active ? "text-white" : "hover:text-white"
               )}
                 style={{
-                  background: active ? "rgba(79,142,247,0.12)" : "transparent",
+                  background: active ? "rgba(59, 130, 246, 0.06)" : "transparent",
                   color: active ? "var(--color-text-1)" : "var(--color-text-2)",
                 }}
               >
                 {active && (
                   <motion.div layoutId="nav-pill"
                     className="absolute inset-0 rounded-lg"
-                    style={{ background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)" }}
+                    style={{ background: "rgba(59, 130, 246, 0.04)", border: "1px solid rgba(59, 130, 246, 0.18)", boxShadow: "0 0 16px -4px rgba(59, 130, 246, 0.15)" }}
                     transition={{ type: "spring", stiffness: 380, damping: 34 }}
                   />
                 )}
                 <Icon className={cn("w-4 h-4 shrink-0 relative z-10 transition-colors", active ? "text-blue" : "group-hover:text-white")}
-                  style={{ color: active ? "var(--color-blue)" : undefined }} />
+                  style={{ color: active ? "var(--color-blue-light)" : undefined }} />
                 <AnimatePresence initial={false}>
                   {!collapsed && (
                     <motion.span

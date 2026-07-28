@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Sparkles, Terminal, Cpu, Zap } from "lucide-react";
+import { Send, Sparkles, Terminal, Cpu, Zap, Clock } from "lucide-react";
 import { useSupervisor } from "../../hooks/useSupervisor";
 
 const SUGGESTIONS = [
@@ -10,48 +10,94 @@ const SUGGESTIONS = [
   "Optimize route for Coimbatore delivery",
 ];
 
+const TypewriterStream = ({ text, onComplete }: { text: string; onComplete?: () => void }) => {
+  const [displayedText, setDisplayedText] = useState("");
+
+  useEffect(() => {
+    if (text.length < 15) {
+      setDisplayedText(text);
+      onComplete?.();
+      return;
+    }
+
+    let i = 0;
+    const words = text.split(" ");
+    const timer = setInterval(() => {
+      if (i < words.length) {
+        setDisplayedText(words.slice(0, i + 1).join(" "));
+        i++;
+      } else {
+        clearInterval(timer);
+        onComplete?.();
+      }
+    }, 20); // 20ms per word
+
+    return () => clearInterval(timer);
+  }, [text, onComplete]);
+
+  return <span>{displayedText}</span>;
+};
+
 const ThinkingIndicator = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const steps = [
-    { text: "Thinking...", isAgent: false },
-    { text: "Dispatch Agent\nCompleted", isAgent: true },
-    { text: "Route Agent\nCompleted", isAgent: true },
-    { text: "Maintenance Agent\nCompleted", isAgent: true },
-    { text: "Analytics Agent\nCompleted", isAgent: true },
-    { text: "Customer Agent\nCompleted", isAgent: true },
+    { text: "AI Supervisor analyzing...", isAgent: false },
+    { text: "Intent detected", isAgent: true },
+    { text: "Workflow selected", isAgent: true },
+    { text: "Dispatch Agent running", isAgent: false, isRunning: true },
+    { text: "Route Agent running", isAgent: false, isRunning: true },
+    { text: "Maintenance Agent running", isAgent: false, isRunning: true },
+    { text: "Analytics Agent running", isAgent: false, isRunning: true },
+    { text: "Customer Agent running", isAgent: false, isRunning: true },
+    { text: "Completed", isAgent: true, isFinal: true },
   ];
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentStep((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
-    }, 600);
+    }, 550);
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <div className="flex flex-col gap-1.5 text-[12px] font-mono text-[var(--color-text-2)] min-w-[200px]">
-      {steps.slice(0, currentStep + 1).map((step, idx) => (
-        <div key={idx} className="flex flex-col" style={{ contentVisibility: "auto" }}>
-          {idx > 0 && (
-            <div className="text-[var(--color-text-3)] pl-2.5 my-0.5 select-none">↓</div>
-          )}
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2"
-          >
-            {step.isAgent ? (
-              <span className="text-[var(--color-emerald)] font-bold">✓</span>
-            ) : (
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+    <div className="flex flex-col gap-2 text-[11px] font-mono text-[var(--color-text-2)] min-w-[240px] p-2">
+      {steps.slice(0, currentStep + 1).map((step, idx) => {
+        const isPastStep = idx < currentStep;
+        const text = isPastStep && step.isRunning 
+          ? step.text.replace(" running", "\nCompleted") 
+          : step.text;
+          
+        return (
+          <div key={idx} className="flex flex-col">
+            {idx > 0 && (
+              <div className="pl-3.5 my-0.5 select-none h-3 w-px bg-zinc-800 ml-1.5" />
             )}
-            <div className="whitespace-pre-line leading-snug">{step.text}</div>
-          </motion.div>
-        </div>
-      ))}
+            <motion.div
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-start gap-3"
+            >
+              <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                {isPastStep || step.isFinal ? (
+                  <span className="text-[var(--color-emerald)] font-extrabold text-[11px]">✓</span>
+                ) : (
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500"></span>
+                  </span>
+                )}
+              </div>
+              <div className="whitespace-pre-line leading-relaxed text-zinc-300 font-medium">
+                {text}
+              </div>
+            </motion.div>
+          </div>
+        );
+      })}
     </div>
   );
 };
+
 
 export const Chat = () => {
   const { messages, sendMessage, isThinking } = useSupervisor();
@@ -168,14 +214,28 @@ export const Chat = () => {
                   }>
                   {!isUser && (
                     <div className="flex items-center gap-1.5 mb-2 pb-2" style={{ borderBottom: "1px solid var(--color-border)" }}>
-                      <Terminal className="w-3 h-3" style={{ color: "var(--color-violet)" }} />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--color-violet)" }}>Supervisor Output</span>
+                      <Terminal className="w-3.5 h-3.5" style={{ color: "var(--color-violet-light)" }} />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">Supervisor Output</span>
                     </div>
                   )}
-                  {msg.content}
+                  {!isUser && i === messages.length - 1 ? (
+                    <TypewriterStream text={msg.content} />
+                  ) : (
+                    msg.content
+                  )}
+                  {!isUser && (
+                    <div className="flex items-center gap-3 mt-3 pt-2 text-[10px] text-[var(--color-text-3)]" style={{ borderTop: "1px solid var(--color-border-subtle)" }}>
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {msg.ts}</span>
+                      <span className="w-1 h-1 rounded-full bg-zinc-800" />
+                      <span className="flex items-center gap-1"><Cpu className="w-3 h-3" /> Latency: ~320ms</span>
+                      <span className="w-1 h-1 rounded-full bg-zinc-800" />
+                      <span className="flex items-center gap-1"><Zap className="w-3 h-3" /> Duration: 1.45s</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
+
           );
         })}
 

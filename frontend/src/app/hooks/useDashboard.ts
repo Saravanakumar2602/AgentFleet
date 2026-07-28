@@ -1,7 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { dashboardService } from "../services/dashboard";
 
 export const useDashboard = () => {
+  const queryClient = useQueryClient();
+
   const system = useQuery({
     queryKey: ["health", "system"],
     queryFn: dashboardService.getSystemHealth,
@@ -26,6 +29,11 @@ export const useDashboard = () => {
   const isOnline = system.data?.status === "success" || system.data?.message?.includes("online");
   const isDbConnected = db.data?.status === "connected" || db.data?.status === "success";
 
+  const refetch = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["health"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  }, [queryClient]);
+
   return {
     isOnline,
     isDbConnected,
@@ -33,11 +41,7 @@ export const useDashboard = () => {
     isLoading: system.isLoading || db.isLoading || stats.isLoading,
     isError: system.isError || db.isError || stats.isError,
     error: system.error ?? db.error ?? stats.error,
-    refetch: () => {
-      system.refetch();
-      db.refetch();
-      stats.refetch();
-    },
+    refetch,
   };
 };
 

@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import {
   Sparkles, Activity, Play, ArrowRight, ShieldCheck,
   AlertCircle, Zap, GitFork, MessageSquare, Truck,
-  CheckCircle2, Clock, TrendingUp, WifiOff,
+  CheckCircle2, Clock, TrendingUp, WifiOff, RefreshCw,
 } from "lucide-react";
 import { useDashboard } from "../../hooks/useDashboard";
 import { useToast } from "../../context/ToastContext";
@@ -105,25 +105,50 @@ export const Dashboard = () => {
     <div className="max-w-6xl mx-auto space-y-8">
 
       {/* ── Hero Header ── */}
-      <motion.div {...fadeUp(0)} className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--color-blue)" }}>
-            Operations Center
-          </p>
-          <h1 className="text-[28px] font-black tracking-tight leading-none" style={{ color: "var(--color-text-1)" }}>
+      <motion.div 
+        {...fadeUp(0)} 
+        className="hero-grid noise grad-border rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden"
+        style={{ background: "var(--color-surface-1)", border: "1px solid var(--color-border)" }}
+      >
+        <div className="absolute top-0 right-0 w-80 h-80 rounded-full pointer-events-none filter blur-[100px]"
+          style={{ background: "radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)" }} />
+        <div className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full pointer-events-none filter blur-[100px]"
+          style={{ background: "radial-gradient(circle, rgba(124, 58, 237, 0.1) 0%, transparent 70%)" }} />
+
+        <div className="relative z-10 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[var(--color-blue-light)]">
+              Enterprise Fleet Intelligence Platform
+            </span>
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+          </div>
+          <h1 className="text-[28px] md:text-[32px] font-extrabold tracking-tight leading-none bg-gradient-to-r from-white via-zinc-100 to-zinc-400 bg-clip-text text-transparent">
             Good morning, Admin.
           </h1>
-          <p className="mt-2 text-[13px] leading-relaxed max-w-md" style={{ color: "var(--color-text-2)" }}>
-            Your fleet is running at peak efficiency. {stats?.activeVehicles ?? 9} vehicles active, {stats?.serviceDueCount ?? 0} critical alerts.
+          <p className="text-[13px] leading-relaxed max-w-lg text-[var(--color-text-2)]">
+            Your autonomous agent network is operating at peak efficiency. **{stats?.activeVehicles ?? 9} active vehicles** resolved via diagnostic supervisor.
           </p>
         </div>
-        <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold shrink-0"
-          style={{ background: `${statusColor}12`, border: `1px solid ${statusColor}28`, color: statusColor }}
-          aria-live="polite"
-        >
-          {isError ? <WifiOff className="w-3 h-3" /> : <Activity className="w-3 h-3" />}
-          {systemStatus}
+
+        <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full sm:w-auto">
+          <div
+            className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold shrink-0"
+            style={{ background: `${statusColor}12`, border: `1px solid ${statusColor}28`, color: statusColor }}
+            aria-live="polite"
+          >
+            {isError ? <WifiOff className="w-3.5 h-3.5" /> : <Activity className="w-3.5 h-3.5 animate-pulse" />}
+            {systemStatus}
+          </div>
+          <button 
+            onClick={() => refetch()}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-semibold bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition-all cursor-pointer text-[var(--color-text-2)] hover:text-white"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Sync Metrics
+          </button>
         </div>
       </motion.div>
 
@@ -135,8 +160,13 @@ export const Dashboard = () => {
           { label: "Fuel Saved",       value: stats?.fuelSaved ?? "1,240L",                    delta: stats?.fuelSavedDelta ?? "−12%",  color: "var(--color-amber)" },
           { label: "Avg ETA Accuracy", value: stats?.avgEtaAccuracy ?? "97.3%",                delta: stats?.avgEtaAccuracyDelta ?? "+1.2%", color: "var(--color-violet)" },
         ].map((s) => (
-          <div key={s.label} className="grad-border rounded-xl p-5 relative overflow-hidden"
-            style={{ background: "var(--color-surface-1)" }}>
+          <motion.div 
+            key={s.label} 
+            whileHover={{ y: -3, scale: 1.01 }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
+            className="grad-border rounded-xl p-5 relative overflow-hidden cursor-default group"
+            style={{ background: "var(--color-surface-1)" }}
+          >
             {isLoading ? (
               <div className="flex flex-col gap-2">
                 <Skeleton className="h-2.5 w-24" />
@@ -145,7 +175,7 @@ export const Dashboard = () => {
             ) : (
               <StatPill {...s} />
             )}
-          </div>
+          </motion.div>
         ))}
       </motion.div>
 
@@ -153,8 +183,13 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
         {/* Fleet Health */}
-        <motion.div {...fadeUp(0.1)} className="grad-border rounded-2xl p-6 flex flex-col gap-5 relative overflow-hidden"
-          style={{ background: "var(--color-surface-1)" }}>
+        <motion.div 
+          {...fadeUp(0.1)} 
+          whileHover={{ y: -4, scale: 1.005 }}
+          transition={{ type: "spring", stiffness: 450, damping: 32 }}
+          className="grad-border rounded-2xl p-6 flex flex-col gap-5 relative overflow-hidden cursor-default"
+          style={{ background: "var(--color-surface-1)" }}
+        >
           <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full pointer-events-none"
             style={{ background: "radial-gradient(circle, rgba(79,142,247,0.12) 0%, transparent 70%)" }} />
           <div>
@@ -207,8 +242,13 @@ export const Dashboard = () => {
 
 
         {/* AI Supervisor — live backend status */}
-        <motion.div {...fadeUp(0.14)} className="grad-border rounded-2xl p-6 flex flex-col gap-4 relative overflow-hidden"
-          style={{ background: "var(--color-surface-1)" }}>
+        <motion.div 
+          {...fadeUp(0.14)} 
+          whileHover={{ y: -4, scale: 1.005 }}
+          transition={{ type: "spring", stiffness: 450, damping: 32 }}
+          className="grad-border rounded-2xl p-6 flex flex-col gap-4 relative overflow-hidden cursor-default"
+          style={{ background: "var(--color-surface-1)" }}
+        >
           <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full pointer-events-none"
             style={{ background: "radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%)" }} />
           <div className="flex items-center justify-between">
@@ -259,8 +299,13 @@ export const Dashboard = () => {
         </motion.div>
 
         {/* Workflow Status */}
-        <motion.div {...fadeUp(0.18)} className="grad-border rounded-2xl p-6 flex flex-col gap-4 relative overflow-hidden"
-          style={{ background: "var(--color-surface-1)" }}>
+        <motion.div 
+          {...fadeUp(0.18)} 
+          whileHover={{ y: -4, scale: 1.005 }}
+          transition={{ type: "spring", stiffness: 450, damping: 32 }}
+          className="grad-border rounded-2xl p-6 flex flex-col gap-4 relative overflow-hidden cursor-default"
+          style={{ background: "var(--color-surface-1)" }}
+        >
           <div className="absolute -bottom-8 -right-8 w-36 h-36 rounded-full pointer-events-none"
             style={{ background: "radial-gradient(circle, rgba(79,142,247,0.08) 0%, transparent 70%)" }} />
           <div className="flex items-center justify-between">
@@ -301,8 +346,13 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
         {/* Activity Feed */}
-        <motion.div {...fadeUp(0.22)} className="lg:col-span-2 grad-border rounded-2xl p-6 flex flex-col gap-5"
-          style={{ background: "var(--color-surface-1)" }}>
+        <motion.div 
+          {...fadeUp(0.22)} 
+          whileHover={{ y: -4, scale: 1.005 }}
+          transition={{ type: "spring", stiffness: 450, damping: 32 }}
+          className="lg:col-span-2 grad-border rounded-2xl p-6 flex flex-col gap-5 cursor-default"
+          style={{ background: "var(--color-surface-1)" }}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-3)" }}>Recent Activity</p>
@@ -341,8 +391,13 @@ export const Dashboard = () => {
         </motion.div>
 
         {/* Quick Actions */}
-        <motion.div {...fadeUp(0.26)} className="grad-border rounded-2xl p-6 flex flex-col gap-4"
-          style={{ background: "var(--color-surface-1)" }}>
+        <motion.div 
+          {...fadeUp(0.26)} 
+          whileHover={{ y: -4, scale: 1.005 }}
+          transition={{ type: "spring", stiffness: 450, damping: 32 }}
+          className="grad-border rounded-2xl p-6 flex flex-col gap-4 cursor-default"
+          style={{ background: "var(--color-surface-1)" }}
+        >
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-3)" }}>Quick Actions</p>
             <p className="text-[12px] mt-0.5" style={{ color: "var(--color-text-2)" }}>Jump to key workflows</p>

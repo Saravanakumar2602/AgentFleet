@@ -1,4 +1,5 @@
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { fleetService } from "../services/fleet";
 import type { MaintenanceResult } from "../types/api";
 
@@ -18,12 +19,16 @@ export interface FleetVehicleData {
   type: string;
   capacity: string;
   driver: string;
+  status: string;
+  health_score: number;
   health: MaintenanceResult | null;
   isLoading: boolean;
   isError: boolean;
 }
 
 export const useFleet = () => {
+  const queryClient = useQueryClient();
+
   const vehiclesQuery = useQuery({
     queryKey: ["fleet", "vehicles"],
     queryFn: fleetService.getVehicles,
@@ -47,18 +52,19 @@ export const useFleet = () => {
     type: v.type,
     capacity: v.capacity,
     driver: v.driver,
+    status: v.status,
+    health_score: v.health_score,
     health: results[i]?.data ?? null,
     isLoading: results[i]?.isLoading || false,
     isError: results[i]?.isError || false,
   }));
 
-  const isLoading = vehiclesQuery.isLoading || results.some((r) => r.isLoading);
+  const isLoading = vehiclesQuery.isLoading;
   const isError = vehiclesQuery.isError || (vehiclesList.length > 0 && results.every((r) => r.isError));
 
-  const refetch = () => {
-    vehiclesQuery.refetch();
-    results.forEach((r) => r.refetch());
-  };
+  const refetch = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["fleet"] });
+  }, [queryClient]);
 
   return { vehicles, isLoading, isError, refetch };
 };
