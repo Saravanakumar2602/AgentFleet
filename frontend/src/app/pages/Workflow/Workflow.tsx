@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, RotateCcw, CheckCircle2, Loader2, Settings2, Navigation, ShieldAlert, BarChart, Send, Sparkles } from "lucide-react";
 
@@ -10,46 +9,27 @@ const STEPS = [
   { name: "Customer Agent",    role: "Notifier Service",   icon: Send,        color: "#f87171",              desc: "Generates ETA notifications and logs customer delivery confirmations." },
 ];
 
+import { useWorkflow } from "../../hooks/useWorkflow";
+
 export const Workflow = () => {
-  const [active, setActive] = useState(-1);
-  const [running, setRunning] = useState(false);
-  const [done, setDone] = useState(false);
-  const [logs, setLogs] = useState<{ text: string; type: "info" | "success" | "system" }[]>([]);
+  const { steps, logs, isDone, isRunning, trigger, reset } = useWorkflow();
 
   const run = () => {
-    if (running || done) return;
-    setRunning(true);
-    setActive(0);
-    setLogs([
-      { text: "[Supervisor] Delivery workflow initiated. Parsing intent...", type: "info" },
-      { text: `[System] Launching ${STEPS[0].name}...`, type: "system" },
-    ]);
-
-    let step = 0;
-    const tick = setInterval(() => {
-      step++;
-      if (step < STEPS.length) {
-        setActive(step);
-        setLogs(p => [
-          ...p,
-          { text: `[${STEPS[step - 1].name}] ✓ Completed in ${(Math.random() * 0.8 + 0.3).toFixed(2)}s`, type: "success" },
-          { text: `[System] Launching ${STEPS[step].name}...`, type: "system" },
-        ]);
-      } else {
-        clearInterval(tick);
-        setActive(STEPS.length);
-        setRunning(false);
-        setDone(true);
-        setLogs(p => [
-          ...p,
-          { text: `[${STEPS[STEPS.length - 1].name}] ✓ Completed in ${(Math.random() * 0.8 + 0.3).toFixed(2)}s`, type: "success" },
-          { text: "[Supervisor] All agents completed. Transaction persisted to Supabase.", type: "info" },
-        ]);
-      }
-    }, 1800);
+    if (isRunning || isDone) return;
+    trigger({
+      workflow: "fleet_delivery",
+      pickup: "chennai",
+      destination: "bangalore",
+      weight: 2500,
+    });
   };
 
-  const reset = () => { setActive(-1); setRunning(false); setDone(false); setLogs([]); };
+  const isIdle = steps.every((s) => s.status === "idle");
+  const activeIndex = steps.findIndex((s) => s.status === "running" || s.status === "failed");
+  const active = isIdle ? -1 : activeIndex !== -1 ? activeIndex : steps.every((s) => s.status === "completed") ? steps.length : steps.filter((s) => s.status === "completed").length;
+  const running = isRunning;
+  const done = isDone;
+
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -168,7 +148,13 @@ export const Workflow = () => {
                         {step.role}
                       </span>
                     </div>
-                    <p className="text-[11px] leading-relaxed" style={{ color: "var(--color-text-3)" }}>{step.desc}</p>
+                    <p className="text-[11px] leading-relaxed" style={{ color: "var(--color-text-3)" }}>
+                      {steps[i]?.detail ? (
+                        <span className="font-mono text-[var(--color-text-2)]">{steps[i].detail}</span>
+                      ) : (
+                        step.desc
+                      )}
+                    </p>
                     {isActive && (
                       <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: "100%" }}
                         className="h-0.5 rounded-full mt-2" style={{ background: `linear-gradient(to right, ${step.color}, transparent)` }} />

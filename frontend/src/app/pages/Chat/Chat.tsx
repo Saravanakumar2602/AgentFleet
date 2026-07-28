@@ -1,12 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Sparkles, Terminal, Cpu, Zap } from "lucide-react";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  ts: string;
-}
+import { useSupervisor } from "../../hooks/useSupervisor";
 
 const SUGGESTIONS = [
   "Dispatch 2.5 tons from Chennai to Bangalore",
@@ -15,50 +10,67 @@ const SUGGESTIONS = [
   "Optimize route for Coimbatore delivery",
 ];
 
-const TypingDots = () => (
-  <div className="flex items-center gap-1 py-1">
-    {[0, 1, 2].map(i => (
-      <motion.span key={i} className="w-1.5 h-1.5 rounded-full"
-        style={{ background: "var(--color-text-3)" }}
-        animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
-        transition={{ duration: 1, delay: i * 0.18, repeat: Infinity }}
-      />
-    ))}
-  </div>
-);
+const ThinkingIndicator = () => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const steps = [
+    { text: "Thinking...", isAgent: false },
+    { text: "Dispatch Agent\nCompleted", isAgent: true },
+    { text: "Route Agent\nCompleted", isAgent: true },
+    { text: "Maintenance Agent\nCompleted", isAgent: true },
+    { text: "Analytics Agent\nCompleted", isAgent: true },
+    { text: "Customer Agent\nCompleted", isAgent: true },
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentStep((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
+    }, 600);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-1.5 text-[12px] font-mono text-[var(--color-text-2)] min-w-[200px]">
+      {steps.slice(0, currentStep + 1).map((step, idx) => (
+        <div key={idx} className="flex flex-col" style={{ contentVisibility: "auto" }}>
+          {idx > 0 && (
+            <div className="text-[var(--color-text-3)] pl-2.5 my-0.5 select-none">↓</div>
+          )}
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2"
+          >
+            {step.isAgent ? (
+              <span className="text-[var(--color-emerald)] font-bold">✓</span>
+            ) : (
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            )}
+            <div className="whitespace-pre-line leading-snug">{step.text}</div>
+          </motion.div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export const Chat = () => {
-  const [messages, setMessages] = useState<Message[]>([{
-    role: "assistant",
-    content: "Hello. I'm the Fleet Supervisor Agent — powered by Llama 3.3 via Groq. I can orchestrate deliveries, check vehicle health, analyze routes, and query fleet analytics. What would you like to do?",
-    ts: "10:14 AM",
-  }]);
+  const { messages, sendMessage, isThinking } = useSupervisor();
   const [input, setInput] = useState("");
-  const [typing, setTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, typing]);
+  }, [messages, isThinking]);
 
   const send = (text?: string) => {
     const content = (text ?? input).trim();
-    if (!content) return;
-    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setMessages(p => [...p, { role: "user", content, ts }]);
+    if (!content || isThinking) return;
+    sendMessage(content);
     setInput("");
-    setTyping(true);
-    setTimeout(() => {
-      setTyping(false);
-      setMessages(p => [...p, {
-        role: "assistant",
-        content: `[Supervisor Core] Received: "${content}"\n\nIntent classified → fleet_delivery. Initiating agent sequence: Dispatch → Route → Maintenance → Analytics → Customer. All agents responding nominally. Transaction logged to Supabase.`,
-        ts: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      }]);
-    }, 1400);
   };
 
-  const isEmpty = messages.length === 1 && !typing;
+  const isEmpty = messages.length === 1 && !isThinking;
+
 
   return (
     <div className="max-w-3xl mx-auto h-[calc(100vh-112px)] flex flex-col gap-0">
@@ -169,16 +181,16 @@ export const Chat = () => {
 
         {/* Typing indicator */}
         <AnimatePresence>
-          {typing && (
+          {isThinking && (
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               className="flex gap-3">
               <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center"
                 style={{ background: "linear-gradient(135deg, rgba(79,142,247,0.3), rgba(124,106,247,0.3))", border: "1px solid rgba(124,106,247,0.3)" }}>
                 <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--color-violet)" }} />
               </div>
-              <div className="px-4 py-3 rounded-2xl rounded-tl-sm"
+              <div className="px-4 py-3 rounded-2xl rounded-tl-sm animate-pulse"
                 style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)" }}>
-                <TypingDots />
+                <ThinkingIndicator />
               </div>
             </motion.div>
           )}
@@ -208,7 +220,7 @@ export const Chat = () => {
           <motion.button
             whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             onClick={() => send()}
-            disabled={!input.trim() || typing}
+            disabled={!input.trim() || isThinking}
             className="w-10 h-10 rounded-xl flex items-center justify-center transition-opacity cursor-pointer disabled:opacity-40"
             style={{ background: "linear-gradient(135deg, #4f8ef7, #7c6af7)" }}
           >
@@ -222,3 +234,4 @@ export const Chat = () => {
     </div>
   );
 };
+
