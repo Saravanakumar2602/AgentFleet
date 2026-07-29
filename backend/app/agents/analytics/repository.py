@@ -11,19 +11,49 @@ class AnalyticsRepository:
     @staticmethod
     def get_vehicle(db: Session, vehicle_id: str) -> dict | None:
         """
-        Fetches basic vehicle attributes.
+        Fetches basic vehicle attributes. Resolves non-UUID or mock IDs to vehicle numbers.
         """
-        query = text("""
-            SELECT id, vehicle_number, vehicle_type, health_score 
-            FROM vehicles 
-            WHERE id = :vehicle_id
-        """)
+        import uuid
+        is_uuid = False
         try:
-            result = db.execute(query, {"vehicle_id": vehicle_id}).mappings().first()
-            return dict(result) if result else None
-        except Exception as e:
-            logger.error(f"Error fetching vehicle details: {e}")
-            raise e
+            uuid.UUID(str(vehicle_id))
+            is_uuid = True
+        except ValueError:
+            pass
+
+        if is_uuid:
+            query = text("""
+                SELECT id, vehicle_number, vehicle_type, health_score 
+                FROM vehicles 
+                WHERE id = :vehicle_id
+            """)
+            try:
+                result = db.execute(query, {"vehicle_id": vehicle_id}).mappings().first()
+                return dict(result) if result else None
+            except Exception as e:
+                logger.error(f"Error fetching vehicle details: {e}")
+                raise e
+        else:
+            mapping = {
+                "v1": "TN38AB1234",
+                "v2": "TN38CD5678",
+                "v3": "TN38EF9012",
+                "v4": "KA-RT-8011",
+                "v5": "MH12AB3456",
+                "v6": "TN45GH7890"
+            }
+            lookup_val = mapping.get(vehicle_id, vehicle_id)
+            query = text("""
+                SELECT id, vehicle_number, vehicle_type, health_score 
+                FROM vehicles 
+                WHERE vehicle_number = :lookup_val
+            """)
+            try:
+                result = db.execute(query, {"lookup_val": lookup_val}).mappings().first()
+                return dict(result) if result else None
+            except Exception as e:
+                logger.error(f"Error fetching vehicle details by number: {e}")
+                raise e
 
     @staticmethod
     def get_trip_statistics(db: Session, vehicle_id: str) -> dict:

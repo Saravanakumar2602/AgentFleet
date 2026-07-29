@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { workflowService } from "../services/workflow";
 import type { SupervisorExecuteResult, WorkflowResults } from "../types/api";
 
@@ -34,6 +34,7 @@ const buildInitialSteps = (): WorkflowStepState[] =>
 const STEP_DELAY_MS = 600;
 
 export const useWorkflow = () => {
+  const queryClient = useQueryClient();
   const [steps, setSteps] = useState<WorkflowStepState[]>(buildInitialSteps());
   const [logs, setLogs] = useState<{ text: string; type: "info" | "success" | "system" | "error" }[]>([]);
   const [result, setResult] = useState<SupervisorExecuteResult | null>(null);
@@ -99,7 +100,12 @@ export const useWorkflow = () => {
       reset();
       setLogs([{ text: "[Supervisor] Connecting to backend...", type: "system" }]);
     },
-    onSuccess: animateSteps,
+    onSuccess: (data) => {
+      animateSteps(data);
+      // Invalidate fleet & dashboard queries to force immediate UI updates
+      queryClient.invalidateQueries({ queryKey: ["fleet"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
     onError: (err: Error) => {
       setSteps((prev) =>
         prev.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s))

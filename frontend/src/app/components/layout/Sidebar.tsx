@@ -60,37 +60,37 @@ export const Sidebar = () => {
         {NAV.map(({ path, label, icon: Icon }) => {
           const active = pathname === path;
           return (
-            <Link key={path} to={path}>
-              <div className={cn(
-                "relative flex items-center gap-3 px-2.5 py-2.5 rounded-lg transition-all duration-150 cursor-pointer group",
+            <Link key={path} to={path}
+              className={cn(
+                "relative flex items-center gap-3 px-2.5 py-2.5 rounded-lg transition-all duration-150 group",
                 active ? "text-white" : "hover:text-white"
               )}
-                style={{
-                  background: active ? "rgba(59, 130, 246, 0.06)" : "transparent",
-                  color: active ? "var(--color-text-1)" : "var(--color-text-2)",
-                }}
-              >
-                {active && (
-                  <motion.div layoutId="nav-pill"
-                    className="absolute inset-0 rounded-lg"
-                    style={{ background: "rgba(59, 130, 246, 0.04)", border: "1px solid rgba(59, 130, 246, 0.18)", boxShadow: "0 0 16px -4px rgba(59, 130, 246, 0.15)" }}
-                    transition={{ type: "spring", stiffness: 380, damping: 34 }}
-                  />
+              style={{
+                background: active ? "rgba(59, 130, 246, 0.06)" : "transparent",
+                color: active ? "var(--color-text-1)" : "var(--color-text-2)",
+              }}
+              aria-current={active ? "page" : undefined}
+            >
+              {active && (
+                <motion.div layoutId="nav-pill"
+                  className="absolute inset-0 rounded-lg"
+                  style={{ background: "rgba(59, 130, 246, 0.04)", border: "1px solid rgba(59, 130, 246, 0.18)", boxShadow: "0 0 16px -4px rgba(59, 130, 246, 0.15)" }}
+                  transition={{ type: "spring", stiffness: 380, damping: 34 }}
+                />
+              )}
+              <Icon className={cn("w-4 h-4 shrink-0 relative z-10 transition-colors", active ? "text-blue" : "group-hover:text-white")}
+                style={{ color: active ? "var(--color-blue-light)" : undefined }} />
+              <AnimatePresence initial={false}>
+                {!collapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -6 }}
+                    transition={{ duration: 0.15 }}
+                    className="text-[13px] font-medium relative z-10 whitespace-nowrap"
+                  >
+                    {label}
+                  </motion.span>
                 )}
-                <Icon className={cn("w-4 h-4 shrink-0 relative z-10 transition-colors", active ? "text-blue" : "group-hover:text-white")}
-                  style={{ color: active ? "var(--color-blue-light)" : undefined }} />
-                <AnimatePresence initial={false}>
-                  {!collapsed && (
-                    <motion.span
-                      initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -6 }}
-                      transition={{ duration: 0.15 }}
-                      className="text-[13px] font-medium relative z-10 whitespace-nowrap"
-                    >
-                      {label}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
+              </AnimatePresence>
             </Link>
           );
         })}

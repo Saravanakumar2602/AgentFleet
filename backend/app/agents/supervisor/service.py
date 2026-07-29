@@ -61,8 +61,8 @@ class SupervisorService:
             "Return ONLY valid JSON. Never explain. Never answer questions. Never generate text outside JSON.\n\n"
             "Required JSON Schema:\n"
             "{\n"
-            "  \"intent\": \"string (e.g., 'dispatch', 'maintenance_status', 'agent_status', 'general')\",\n"
-            "  \"workflow\": \"string (e.g., 'fleet_delivery', 'vehicle_maintenance', 'agent_status', 'general')\",\n"
+            "  \"intent\": \"string (e.g., 'dispatch', 'complete_trip', 'maintenance_status', 'agent_status', 'general')\",\n"
+            "  \"workflow\": \"string (e.g., 'fleet_delivery', 'complete_trip', 'vehicle_maintenance', 'agent_status', 'general')\",\n"
             "  \"pickup\": \"string (optional, origin location name/coordinate)\",\n"
             "  \"destination\": \"string (optional, destination location name/coordinate)\",\n"
             "  \"weight\": \"number (optional, numeric cargo weight value)\",\n"
@@ -109,8 +109,71 @@ class SupervisorService:
         # 5. Extract and validate parameters based on intent
         intent = parsed.get("intent", "").lower()
         
+        if "complete" in intent or intent == "complete_trip" or "completed" in intent:
+            workflow_name = "complete_trip"
+            vehicle_number = parsed.get("vehicle_number")
+            if not vehicle_number and message:
+                match = re.search(r'\b[A-Z]{2}[- ]?\d{1,2}[- ]?[A-Z]{1,3}[- ]?\d{1,4}\b', message.upper())
+                if match:
+                    vehicle_number = match.group(0).replace(" ", "").replace("-", "")
+
+            workflow = get_workflow(workflow_name)
+            if not workflow:
+                raise AgentFleetException("Workflow not found.", status_code=400)
+
+            workflow_res = workflow.run(
+                db=db,
+                task_data={
+                    "trip_id": parsed.get("trip_id"),
+                    "vehicle_number": vehicle_number
+                }
+            )
+
+            total_end = time.perf_counter()
+            total_time_ms = int((total_end - total_start) * 1000)
+
+            if workflow_res.get("status") == "failed":
+                return workflow_res
+
+            return {
+                "status": "success",
+                "intent": intent,
+                "workflow": workflow_name,
+                "llm_latency_ms": llm_latency_ms,
+                "total_execution_time_ms": total_time_ms,
+                "results": {
+                    "dispatch": {
+                        "trip_id": workflow_res["trip_id"],
+                        "vehicle": {
+                            "id": "N/A",
+                            "vehicle_number": workflow_res["vehicle_number"]
+                        },
+                        "driver": {
+                            "id": "N/A",
+                            "name": workflow_res["driver_name"]
+                        }
+                    },
+                    "route": {
+                        "distance_km": 0.0,
+                        "estimated_duration": "0m",
+                        "estimated_fuel": 0.0
+                    },
+                    "maintenance": {
+                        "health_score": 100,
+                        "vehicle_status": "Available"
+                    },
+                    "analytics": {
+                        "utilization": 0,
+                        "recommendation": "N/A"
+                    },
+                    "customer": {
+                        "customer_message": workflow_res["message"]
+                    }
+                }
+            }
+
         # If it is a dispatch/delivery request:
-        if "dispatch" in intent or "delivery" in intent or "workflow" in intent or intent == "fleet_delivery":
+        elif "dispatch" in intent or "delivery" in intent or "workflow" in intent or intent == "fleet_delivery":
             workflow_name = parsed.get("workflow", "fleet_delivery")
             pickup = parsed.get("pickup") or parsed.get("origin")
             destination = parsed.get("destination")

@@ -27,8 +27,10 @@ class MaintenanceService:
             logger.warning(f"Vehicle not found in database: {vehicle_id}")
             raise VehicleUnavailableException("Vehicle not found.")
 
+        real_vehicle_id = str(vehicle["id"])
+
         # 2. Fetch latest maintenance history (stored for log traces/analytics)
-        latest_log = self.repository.get_latest_maintenance(db, vehicle_id)
+        latest_log = self.repository.get_latest_maintenance(db, real_vehicle_id)
         if latest_log:
             logger.info(f"Found latest maintenance entry: status={latest_log['status']} dated {latest_log['service_date']}")
 
@@ -56,24 +58,25 @@ class MaintenanceService:
 
         # 5. Insert maintenance log and set status to Maintenance if required
         if status == "Maintenance Required":
-            logger.warning(f"Vehicle {vehicle_id} health is critical ({health_score}). Scheduling immediate maintenance...")
+            logger.warning(f"Vehicle {real_vehicle_id} health is critical ({health_score}). Scheduling immediate maintenance...")
             # Insert scheduled log entry
             self.repository.insert_maintenance_log(
                 db=db,
-                vehicle_id=vehicle_id,
+                vehicle_id=real_vehicle_id,
                 issue="Critical diagnostics check flag: health score below 50.",
                 health_score=health_score
             )
             # Update vehicle status to 'Maintenance' in database
             self.repository.update_vehicle_health(
                 db=db,
-                vehicle_id=vehicle_id,
+                vehicle_id=real_vehicle_id,
                 health_score=health_score,
                 status="Maintenance"
             )
 
         # 6. Formulate return payloads
         response_payload = {
+            "agent": "Maintenance Agent",
             "vehicle_id": str(vehicle["id"]),
             "health_score": int(health_score),
             "vehicle_status": status,

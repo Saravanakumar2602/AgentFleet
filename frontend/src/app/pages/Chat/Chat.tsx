@@ -2,10 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Sparkles, Terminal, Cpu, Zap, Clock } from "lucide-react";
 import { useSupervisor } from "../../hooks/useSupervisor";
+import { useFleet } from "../../hooks/useFleet";
 
-const SUGGESTIONS = [
+const SUGGESTIONS_BASE = [
   "Dispatch 2.5 tons from Chennai to Bangalore",
-  "Check maintenance status for TN38AB1234",
   "Show fleet utilization for this week",
   "Optimize route for Coimbatore delivery",
 ];
@@ -101,8 +101,16 @@ const ThinkingIndicator = () => {
 
 export const Chat = () => {
   const { messages, sendMessage, isThinking } = useSupervisor();
+  const { vehicles } = useFleet();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const activeVehicleNumber = vehicles?.[0]?.number || "TN38AB1234";
+  const dynamicSuggestions = [
+    "Dispatch 2.5 tons from Chennai to Bangalore",
+    `Check maintenance status for ${activeVehicleNumber}`,
+    ...SUGGESTIONS_BASE,
+  ];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -174,7 +182,7 @@ export const Chat = () => {
                 <p className="text-[12px] mt-1" style={{ color: "var(--color-text-3)" }}>Try one of these to get started</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-                {SUGGESTIONS.map(s => (
+                {dynamicSuggestions.map(s => (
                   <button key={s} onClick={() => send(s)}
                     className="text-left px-4 py-3 rounded-xl text-[12px] font-medium transition-colors cursor-pointer hover:border-blue-500/30"
                     style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-border)", color: "var(--color-text-2)" }}>
