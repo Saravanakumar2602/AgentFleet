@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Zap, Route, BarChart3, Activity, RefreshCw } from "lucide-react";
-import { useAnalytics } from "../../hooks/useAnalytics";
-import { FLEET_VEHICLE_IDS } from "../../hooks/useFleet";
+import { useAnalytics, useHistoricalAnalytics } from "../../hooks/useAnalytics";
+import { useFleet } from "../../hooks/useFleet";
 import { useToast } from "../../context/ToastContext";
 import { Skeleton, SkeletonCard } from "../../components/ui/Skeleton";
 
@@ -69,8 +69,7 @@ const fadeUp = (delay = 0) => ({
 });
 
 /* ── Animated SVG Area Chart — animates after data loads ── */
-const AreaChart = ({ ready }: { ready: boolean }) => {
-  const points = [88, 72, 91, 65, 95, 78, 97, 84, 99, 76, 94, 100];
+const AreaChart = ({ ready, points }: { ready: boolean; points: number[] }) => {
   const w = 400, h = 100;
   const step = w / (points.length - 1);
   const toY = (v: number) => h - (v / 100) * h * 0.85 - 4;
@@ -111,9 +110,12 @@ const AreaChart = ({ ready }: { ready: boolean }) => {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export const Analytics = () => {
-  // Fetch analytics for first vehicle; also use fleet data for agent performance
-  const { data, isLoading, isError, error, refetch } = useAnalytics(FLEET_VEHICLE_IDS[0].id);
+  const { vehicles, isLoading: isVehiclesLoading } = useFleet();
+  const firstVehicleId = vehicles?.[0]?.id;
+  const { data, isLoading: isAnalyticsLoading, isError, error, refetch } = useAnalytics(firstVehicleId);
+  const { data: histData, isLoading: isHistLoading, refetch: refetchHist } = useHistoricalAnalytics();
 
+  const isLoading = isVehiclesLoading || isAnalyticsLoading;
   const { toast } = useToast();
 
   useEffect(() => {
@@ -144,7 +146,7 @@ export const Analytics = () => {
               Performance metrics, fuel efficiency, and agent operation analysis.
             </p>
           </div>
-          <button onClick={() => refetch()} aria-label="Refresh analytics"
+          <button onClick={() => { refetch(); refetchHist(); }} aria-label="Refresh analytics"
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium transition-colors cursor-pointer shrink-0 mt-1"
             style={{ background: "var(--color-surface-1)", border: "1px solid var(--color-border)", color: "var(--color-text-2)" }}>
             <RefreshCw className="w-3.5 h-3.5" />
@@ -225,9 +227,9 @@ export const Analytics = () => {
             </div>
           </div>
           <div className="h-44 w-full relative">
-            {isLoading
+            {isHistLoading
               ? <Skeleton className="w-full h-full rounded-xl" />
-              : <AreaChart ready={!isLoading && !!data} />
+              : <AreaChart ready={!isHistLoading && !!histData} points={histData?.points ?? [88, 72, 91, 65, 95, 78, 97, 84, 99, 76, 94, 100]} />
             }
           </div>
           <div className="flex justify-between pt-2" style={{ borderTop: "1px solid var(--color-border)" }}>

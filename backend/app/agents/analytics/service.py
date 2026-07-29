@@ -27,9 +27,11 @@ class AnalyticsService:
             logger.warning(f"Vehicle not found in database: {vehicle_id}")
             raise VehicleUnavailableException("Vehicle not found.")
 
+        real_vehicle_id = str(vehicle["id"])
+
         # 2. Retrieve statistics
-        trip_stats = self.repository.get_trip_statistics(db, vehicle_id)
-        maintenance_count = self.repository.get_maintenance_statistics(db, vehicle_id)
+        trip_stats = self.repository.get_trip_statistics(db, real_vehicle_id)
+        maintenance_count = self.repository.get_maintenance_statistics(db, real_vehicle_id)
         fleet_avg_efficiency = self.repository.get_fleet_average_fuel_efficiency(db)
 
         # 3. Compute calculations

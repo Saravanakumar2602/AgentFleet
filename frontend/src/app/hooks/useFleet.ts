@@ -21,6 +21,8 @@ export interface FleetVehicleData {
   driver: string;
   status: string;
   health_score: number;
+  fuel_level: number;
+  route: string;
   health: MaintenanceResult | null;
   isLoading: boolean;
   isError: boolean;
@@ -54,6 +56,8 @@ export const useFleet = () => {
     driver: v.driver,
     status: v.status,
     health_score: v.health_score,
+    fuel_level: v.fuel_level ?? 100,
+    route: v.route ?? "Standby",
     health: results[i]?.data ?? null,
     isLoading: results[i]?.isLoading || false,
     isError: results[i]?.isError || false,

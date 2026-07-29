@@ -13,13 +13,41 @@ class RouteRepository:
         """
         Fetches the current coordinates of a vehicle from vehicle_locations.
         """
+        import uuid
+        is_uuid = False
+        try:
+            uuid.UUID(str(vehicle_id))
+            is_uuid = True
+        except ValueError:
+            pass
+
+        real_uuid = vehicle_id
+        if not is_uuid:
+            mapping = {
+                "v1": "TN38AB1234",
+                "v2": "TN38CD5678",
+                "v3": "TN38EF9012",
+                "v4": "KA-RT-8011",
+                "v5": "MH12AB3456",
+                "v6": "TN45GH7890"
+            }
+            lookup_val = mapping.get(vehicle_id, vehicle_id)
+            res = db.execute(
+                text("SELECT id FROM vehicles WHERE vehicle_number = :lookup_val"),
+                {"lookup_val": lookup_val}
+            ).first()
+            if res:
+                real_uuid = str(res[0])
+            else:
+                return None
+
         query = text("""
             SELECT vehicle_id, latitude, longitude, speed 
             FROM vehicle_locations 
             WHERE vehicle_id = :vehicle_id
         """)
         try:
-            result = db.execute(query, {"vehicle_id": vehicle_id}).mappings().first()
+            result = db.execute(query, {"vehicle_id": real_uuid}).mappings().first()
             return dict(result) if result else None
         except Exception as e:
             logger.error(f"Error fetching vehicle location: {e}")
@@ -30,6 +58,34 @@ class RouteRepository:
         """
         Retrieves the active trip (status in 'Assigned' or 'Pending') assigned to this vehicle.
         """
+        import uuid
+        is_uuid = False
+        try:
+            uuid.UUID(str(vehicle_id))
+            is_uuid = True
+        except ValueError:
+            pass
+
+        real_uuid = vehicle_id
+        if not is_uuid:
+            mapping = {
+                "v1": "TN38AB1234",
+                "v2": "TN38CD5678",
+                "v3": "TN38EF9012",
+                "v4": "KA-RT-8011",
+                "v5": "MH12AB3456",
+                "v6": "TN45GH7890"
+            }
+            lookup_val = mapping.get(vehicle_id, vehicle_id)
+            res = db.execute(
+                text("SELECT id FROM vehicles WHERE vehicle_number = :lookup_val"),
+                {"lookup_val": lookup_val}
+            ).first()
+            if res:
+                real_uuid = str(res[0])
+            else:
+                return None
+
         query = text("""
             SELECT id, vehicle_id, driver_id, source, destination, status 
             FROM trips 
@@ -39,7 +95,7 @@ class RouteRepository:
             LIMIT 1
         """)
         try:
-            result = db.execute(query, {"vehicle_id": vehicle_id}).mappings().first()
+            result = db.execute(query, {"vehicle_id": real_uuid}).mappings().first()
             return dict(result) if result else None
         except Exception as e:
             logger.error(f"Error fetching active trip: {e}")

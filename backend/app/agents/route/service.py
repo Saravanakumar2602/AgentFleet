@@ -8,6 +8,8 @@ from backend.app.shared.geo.distance import haversine_distance
 from backend.app.shared.geo.eta import estimate_eta
 from backend.app.shared.geo.fuel import estimate_fuel
 
+from backend.app.core.config import settings
+
 logger = logging.getLogger("agentfleet.agents.route.service")
 
 class RouteService:
@@ -52,14 +54,14 @@ class RouteService:
         if distance_km <= 0.0:
             distance_km = 1.0
 
-        # 5. Estimate duration (Use speed ~61.26 km/h to match target response format)
-        minutes = estimate_eta(distance_km, speed_kmh=61.26)
+        # 5. Estimate duration (Use speed from configuration)
+        minutes = estimate_eta(distance_km, speed_kmh=settings.ROUTE_DEFAULT_SPEED_KMH)
         hours = minutes // 60
         mins = minutes % 60
         duration_str = f"{hours}h {mins}m"
 
-        # 6. Estimate fuel consumption (Using baseline consumption rate of ~14.266 L/100km)
-        fuel_liters = estimate_fuel(distance_km, fuel_rate_l_100km=14.266)
+        # 6. Estimate fuel consumption (Using baseline consumption rate from configuration)
+        fuel_liters = estimate_fuel(distance_km, fuel_rate_l_100km=settings.ROUTE_FUEL_L_PER_100KM)
 
         # 7. Update database record
         try:

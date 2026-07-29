@@ -10,10 +10,19 @@ export const fleetService = {
 
   /** POST /maintenance — evaluate a single vehicle's health */
   getVehicleHealth: async (vehicleId: string): Promise<MaintenanceResult> => {
-    const res = await api.post<MaintenanceResult>("/maintenance", {
+    const res = await api.post<any>("/maintenance", {
       vehicle_id: vehicleId,
     });
-    return res.data;
+    const envelope = res.data;
+    return {
+      status: envelope.status,
+      message: envelope.message,
+      agent: envelope.data?.agent ?? "Maintenance Agent",
+      vehicle_id: envelope.data?.vehicle_id,
+      health_score: envelope.data?.health_score ?? 100,
+      vehicle_status: envelope.data?.vehicle_status ?? "Healthy",
+      next_service_after_km: envelope.data?.next_service_after_km,
+    };
   },
 };
 

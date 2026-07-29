@@ -9,3 +9,7 @@ class SupervisorRequest(BaseModel):
 class SupervisorChatRequest(BaseModel):
     message: str = Field(..., description="Natural language delivery command")
 
+class SupervisorCompleteRequest(BaseModel):
+    trip_id: str | None = Field(None, description="Optional Trip UUID to complete")
+    vehicle_number: str | None = Field(None, description="Optional Vehicle Number to complete active trip for")
+

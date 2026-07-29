@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     SUPABASE_KEY: Optional[str] = None
     SUPABASE_DB_URL: Optional[str] = None
 
+    # Route Baseline Configurations
+    ROUTE_DEFAULT_SPEED_KMH: float = 61.26
+    ROUTE_FUEL_L_PER_100KM: float = 14.266
+
+    # CORS Configurations
+    CORS_ORIGINS: list[str] = ["*"]
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

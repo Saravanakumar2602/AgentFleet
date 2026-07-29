@@ -367,26 +367,40 @@ export const Dashboard = () => {
             </div>
           </div>
           <div className="space-y-1">
-            {ACTIVITY.map(({ icon: Icon, color, title, desc, time }, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.28 + i * 0.07, duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
-                className="flex items-start gap-3.5 p-3 rounded-xl transition-colors group cursor-default"
-                style={{ borderBottom: i < ACTIVITY.length - 1 ? "1px solid var(--color-border-subtle)" : "none" }}
-              >
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                  style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
-                  <Icon className="w-3.5 h-3.5" style={{ color }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold" style={{ color: "var(--color-text-1)" }}>{title}</p>
-                  <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "var(--color-text-3)" }}>{desc}</p>
-                </div>
-                <span className="text-[10px] font-medium shrink-0 mt-0.5" style={{ color: "var(--color-text-3)" }}>{time}</span>
-              </motion.div>
-            ))}
+            {(stats?.recentActivity && stats.recentActivity.length > 0 ? stats.recentActivity : ACTIVITY).map((item: any, i: number, arr: any[]) => {
+              const iconConfig = item.icon && item.color
+                ? item
+                : item.title.includes("Complete") || item.status === "Completed"
+                ? { icon: CheckCircle2, color: "var(--color-emerald)" }
+                : item.title.includes("Intent") || item.status === "Success"
+                ? { icon: Sparkles, color: "var(--color-blue)" }
+                : item.title.includes("Route") || item.status === "Pending"
+                ? { icon: Zap, color: "var(--color-amber)" }
+                : { icon: ShieldCheck, color: "var(--color-violet)" };
+              const Icon = iconConfig.icon;
+              const color = iconConfig.color;
+
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.28 + i * 0.07, duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number,number,number,number] }}
+                  className="flex items-start gap-3.5 p-3 rounded-xl transition-colors group cursor-default"
+                  style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--color-border-subtle)" : "none" }}
+                >
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                    style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
+                    <Icon className="w-3.5 h-3.5" style={{ color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-semibold" style={{ color: "var(--color-text-1)" }}>{item.title}</p>
+                    <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: "var(--color-text-3)" }}>{item.desc}</p>
+                  </div>
+                  <span className="text-[10px] font-medium shrink-0 mt-0.5" style={{ color: "var(--color-text-3)" }}>{item.time}</span>
+                </motion.div>
+              );
+            })}
           </div>
         </motion.div>
 

@@ -108,14 +108,8 @@ export const Fleet = () => {
               const StatusIcon = cfg.icon;
               const healthScore = v.health?.health_score ?? v.health_score ?? 100;
 
-              const route = v.id === "v1" ? "CHN ➔ BLR"
-                : v.id === "v2" ? "CHN ➔ CJB"
-                : v.id === "v3" ? "BLR ➔ CJB"
-                : v.id === "v4" ? "CHN ➔ HYD"
-                : v.id === "v5" ? "BLR ➔ HYD"
-                : "Standby";
-
-              const fuelLevel = Math.round(((healthScore * 13) % 40) + 55);
+              const route = v.route || "Standby";
+              const fuelLevel = v.fuel_level ?? Math.round(((healthScore * 13) % 40) + 55);
               const driverInitials = v.driver.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
               return (

@@ -28,6 +28,18 @@ else:
 
 try:
     engine = create_engine(DB_URL, **engine_kwargs)
+    
+    # Listen for SQLite connection events to register PostgreSQL compatibility functions
+    if DB_URL.startswith("sqlite"):
+        from sqlalchemy import event
+        import uuid
+        from datetime import datetime
+        
+        @event.listens_for(engine, "connect")
+        def register_sqlite_udfs(dbapi_connection, connection_record):
+            dbapi_connection.create_function("gen_random_uuid", 0, lambda: str(uuid.uuid4()))
+            dbapi_connection.create_function("now", 0, lambda: datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
+            
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base = declarative_base()
     logger.info("Database engine and session factory created successfully.")

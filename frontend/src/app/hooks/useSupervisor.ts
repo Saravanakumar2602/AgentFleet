@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supervisorService } from "../services/supervisor";
 import type { SupervisorChatResult, WorkflowResults } from "../types/api";
 
@@ -36,53 +36,67 @@ const formatAssistantContent = (data: SupervisorChatResult): string => {
   return lines.join("\n");
 };
 
+// Global in-memory cache to persist chat across component unmounts (page navigations)
+let cachedMessages: ChatMessage[] = [
+  {
+    id: uid(),
+    role: "assistant",
+    content:
+      "Hello. I'm the Fleet Supervisor Agent — powered by Llama 3.3 via Groq. I can orchestrate deliveries, check vehicle health, analyze routes, and query fleet analytics. What would you like to do?",
+    ts: ts(),
+  },
+];
+
 export const useSupervisor = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: uid(),
-      role: "assistant",
-      content:
-        "Hello. I'm the Fleet Supervisor Agent — powered by Llama 3.3 via Groq. I can orchestrate deliveries, check vehicle health, analyze routes, and query fleet analytics. What would you like to do?",
-      ts: ts(),
-    },
-  ]);
+  const queryClient = useQueryClient();
+  const [messages, setMessages] = useState<ChatMessage[]>(cachedMessages);
 
   const mutation = useMutation({
     mutationFn: supervisorService.chat,
     onSuccess: (data) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: uid(),
-          role: "assistant",
-          content: formatAssistantContent(data),
-          ts: ts(),
-          results: data.results,
-          intent: data.intent,
-          latency: data.total_execution_time_ms,
-        },
-      ]);
+      const assistantMsg: ChatMessage = {
+        id: uid(),
+        role: "assistant",
+        content: formatAssistantContent(data),
+        ts: ts(),
+        results: data.results,
+        intent: data.intent,
+        latency: data.total_execution_time_ms,
+      };
+      setMessages((prev) => {
+        const updated = [...prev, assistantMsg];
+        cachedMessages = updated;
+        return updated;
+      });
+      
+      // Invalidate fleet & dashboard queries to force immediate UI updates
+      queryClient.invalidateQueries({ queryKey: ["fleet"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err: Error) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: uid(),
-          role: "assistant",
-          content: `⚠ ${err.message}`,
-          ts: ts(),
-        },
-      ]);
+      const errMsg: ChatMessage = {
+        id: uid(),
+        role: "assistant",
+        content: `⚠ ${err.message}`,
+        ts: ts(),
+      };
+      setMessages((prev) => {
+        const updated = [...prev, errMsg];
+        cachedMessages = updated;
+        return updated;
+      });
     },
   });
 
   const sendMessage = useCallback(
     (text: string) => {
       if (!text.trim() || mutation.isPending) return;
-      setMessages((prev) => [
-        ...prev,
-        { id: uid(), role: "user", content: text.trim(), ts: ts() },
-      ]);
+      const userMsg: ChatMessage = { id: uid(), role: "user", content: text.trim(), ts: ts() };
+      setMessages((prev) => {
+        const updated = [...prev, userMsg];
+        cachedMessages = updated;
+        return updated;
+      });
       mutation.mutate({ message: text.trim() });
     },
     [mutation]
@@ -95,3 +109,4 @@ export const useSupervisor = () => {
     error: mutation.error,
   };
 };
+
