@@ -6,6 +6,9 @@ from sqlalchemy import text
 # Add parent directory to sys.path to allow absolute imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
 from backend.app.database.supabase import SessionLocal
 from backend.app.registry.registry import get_agent
 
@@ -121,6 +124,78 @@ def execute_autonomous_delivery(pickup: str, destination: str, cargo_weight: flo
             print(f"Warning: Failed to create placeholder analytics record: {analytics_err}")
             db.rollback()
 
+        # Outbound Email Notification to Driver
+        try:
+            from backend.app.core.config import settings
+            from backend.app.shared.notifications.email import send_email_async
+            
+            driver_email = settings.DEMO_DRIVER_EMAIL or "saravanaegs2602@gmail.com"
+            driver_name = dispatch_res.get("driver", {}).get("name", "Driver")
+            
+            # Fetch database driver email if exists
+            driver_res = db.execute(text("""
+                SELECT u.email 
+                FROM drivers d 
+                JOIN users u ON d.user_id = u.id 
+                WHERE d.id = :driver_id
+            """), {"driver_id": checkpoint_data["driver_id"]}).first()
+            if driver_res and driver_res[0] and not driver_res[0].endswith("agentfleet.com"):
+                driver_email = driver_res[0]
+
+            if driver_email:
+                pickup_loc = pickup
+                destination_loc = destination
+                gmaps_url = f"https://www.google.com/maps/dir/?api=1&origin={pickup_loc}&destination={destination_loc}"
+                
+                subject = f"[AgentFleet] New Trip Assignment: {pickup_loc} to {destination_loc}"
+                html_body = f"""
+                <html>
+                  <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                      <h2 style="color: #4f8ef7; border-bottom: 2px solid #4f8ef7; padding-bottom: 10px;">New Cargo Dispatch Assignment</h2>
+                      <p>Hello <strong>{driver_name}</strong>,</p>
+                      <p>You have been assigned to transport cargo for the following route:</p>
+                      <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                        <tr>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; width: 150px;">Pickup Coordinates:</td>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee;">{pickup_loc}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Destination:</td>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee;">{destination_loc}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Distance:</td>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee;">{route_res.get('distance_km', 0.0)} km</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Est. Duration:</td>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee;">{route_res.get('estimated_duration', 'N/A')}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Est. Fuel:</td>
+                          <td style="padding: 8px; border-bottom: 1px solid #eee;">{route_res.get('estimated_fuel', 0.0)} L</td>
+                        </tr>
+                      </table>
+                      <div style="margin: 25px 0; text-align: center;">
+                        <a href="{gmaps_url}" target="_blank" 
+                           style="background-color: #4f8ef7; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                           Start Navigation on Google Maps
+                        </a>
+                      </div>
+                      <p style="font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 15px;">
+                        This is an automated dispatch alert sent from the AgentFleet supervisor system. Please contact customer support if you notice any discrepancies.
+                      </p>
+                    </div>
+                  </body>
+                </html>
+                """
+                text_body = f"Hello {driver_name},\n\nYou have been assigned to a new cargo transport.\nRoute: {pickup_loc} to {destination_loc}\nDistance: {route_res.get('distance_km')} km\nETA: {route_res.get('estimated_duration')}\nStart Google Maps Navigation: {gmaps_url}"
+                
+                send_email_async(driver_email, subject, html_body, text_body)
+        except Exception as email_dispatch_err:
+            print(f"Warning: Outbound driver notification error: {email_dispatch_err}")
+
         # Step 3: Maintenance Agent
         print("[Step 3/5] Executing Maintenance Agent...")
         maint_agent = get_agent("maintenance")
@@ -170,6 +245,11 @@ def execute_autonomous_delivery(pickup: str, destination: str, cargo_weight: flo
         print("=" * 50)
 
         print("\n--- All Agents Executed Successfully autonomously! ---")
+        
+        # Give background email notification threads time to establish SMTP handshake and complete delivery
+        print("\nWaiting 15 seconds for background email threads to complete delivery...")
+        import time
+        time.sleep(15)
 
     except Exception as e:
         print(f"\n[ERROR] Execution halted: {e}")

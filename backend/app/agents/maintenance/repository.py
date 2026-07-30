@@ -76,26 +76,24 @@ class MaintenanceRepository:
 
     @staticmethod
     def insert_maintenance_log(db: Session, vehicle_id: str, issue: str, health_score: float) -> str:
-        """
-        Registers a new scheduled maintenance action.
-        """
+        import uuid
+        log_uuid = str(uuid.uuid4())
         query = text("""
-            INSERT INTO maintenance_logs (vehicle_id, issue, health_score, service_date, status)
-            VALUES (:vehicle_id, :issue, :health_score, NOW(), 'Scheduled')
-            RETURNING id
+            INSERT INTO maintenance_logs (id, vehicle_id, issue, health_score, service_date, status)
+            VALUES (:id, :vehicle_id, :issue, :health_score, NOW(), 'Scheduled')
         """)
         try:
-            result = db.execute(
+            db.execute(
                 query,
                 {
+                    "id": log_uuid,
                     "vehicle_id": vehicle_id,
                     "issue": issue,
                     "health_score": health_score
                 }
             )
-            log_id = result.scalar()
             db.commit()
-            return str(log_id)
+            return log_uuid
         except Exception as e:
             db.rollback()
             logger.error(f"Error inserting maintenance log: {e}")

@@ -58,15 +58,17 @@ class DispatchRepository:
         """
         Registers a new trip in the database and returns the generated trip UUID string.
         """
+        import uuid
+        trip_uuid = str(uuid.uuid4())
         query = text("""
-            INSERT INTO trips (vehicle_id, driver_id, source, destination, distance_km, estimated_duration, status, created_at)
-            VALUES (:vehicle_id, :driver_id, :source, :destination, :distance_km, :estimated_duration, 'Assigned', NOW())
-            RETURNING id
+            INSERT INTO trips (id, vehicle_id, driver_id, source, destination, distance_km, estimated_duration, status, created_at)
+            VALUES (:id, :vehicle_id, :driver_id, :source, :destination, :distance_km, :estimated_duration, 'Assigned', NOW())
         """)
         try:
-            result = db.execute(
+            db.execute(
                 query,
                 {
+                    "id": trip_uuid,
                     "vehicle_id": vehicle_id,
                     "driver_id": driver_id,
                     "source": source,
@@ -75,9 +77,8 @@ class DispatchRepository:
                     "estimated_duration": estimated_duration
                 }
             )
-            trip_id = result.scalar()
             db.commit()
-            return str(trip_id)
+            return trip_uuid
         except Exception as e:
             db.rollback()
             logger.error(f"Error creating trip: {e}")

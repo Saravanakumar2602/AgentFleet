@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     # CORS Configurations
     CORS_ORIGINS: list[str] = ["*"]
 
+    # SMTP Configuration for Outbound Email Alerts
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM_EMAIL: str = "notifications@agentfleet.com"
+
+    # Fallback Demo Target Emails
+    DEMO_DRIVER_EMAIL: Optional[str] = "saravanaegs2602@gmail.com"
+    DEMO_CUSTOMER_EMAIL: Optional[str] = "saravanakumar26022007@gmail.com"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
