@@ -1,12 +1,26 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, RotateCcw, CheckCircle2, Loader2, Settings2, Navigation, ShieldAlert, BarChart, Send, Sparkles } from "lucide-react";
+import { 
+  Play, RotateCcw, CheckCircle2, Loader2, Settings2, Navigation, 
+  ShieldAlert, BarChart, Send, Sparkles, ClipboardCheck, TrafficCone,
+  CloudSun, Timer, FileSpreadsheet, Fuel, Star, FileText, TrendingUp, AlertOctagon 
+} from "lucide-react";
 
 const STEPS = [
-  { name: "Dispatch Agent",    role: "Fleet Assigner",     icon: Settings2,   color: "var(--color-blue)",    desc: "Allocates optimal vehicle and driver by cargo weight and availability." },
-  { name: "Route Agent",       role: "Route Intelligence", icon: Navigation,  color: "var(--color-violet)",  desc: "Computes Haversine ETA, fuel estimate, and optimal path coordinates." },
-  { name: "Maintenance Agent", role: "Diagnostic Checker", icon: ShieldAlert, color: "var(--color-emerald)", desc: "Validates vehicle health index and clears active DTC codes." },
-  { name: "Analytics Agent",   role: "Data Aggregator",    icon: BarChart,    color: "var(--color-amber)",   desc: "Updates trip history, utilization indices, and fuel consumption logs." },
-  { name: "Customer Agent",    role: "Notifier Service",   icon: Send,        color: "#f87171",              desc: "Generates ETA notifications and logs customer delivery confirmations." },
+  { name: "Cargo Validation Agent", role: "Pre-flight Checker", icon: ClipboardCheck, color: "var(--color-blue)",    desc: "Validates cargo weight restrictions and hazard permit status." },
+  { name: "Dispatch Agent",         role: "Fleet Assigner",     icon: Settings2,      color: "var(--color-blue)",    desc: "Allocates optimal vehicle and driver by cargo weight and availability." },
+  { name: "Traffic Agent",          role: "Traffic Analyzer",   icon: TrafficCone,    color: "var(--color-violet)",  desc: "Analyzes route congestion patterns and time delays." },
+  { name: "Weather Agent",          role: "Route Advisor",      icon: CloudSun,       color: "var(--color-violet)",  desc: "Fetches live weather conditions at destination using wttr.in." },
+  { name: "Route Agent",            role: "Route Intelligence", icon: Navigation,     color: "var(--color-violet)",  desc: "Computes Haversine ETA, fuel estimate, and optimal path coordinates." },
+  { name: "ETA Updater Agent",      role: "Precision Timer",    icon: Timer,          color: "var(--color-violet)",  desc: "Refines trip ETA based on live traffic and weather delays." },
+  { name: "Compliance Agent",       role: "Regulatory Checker", icon: FileSpreadsheet, color: "var(--color-emerald)", desc: "Verifies driver work hours and vehicle compliance logs." },
+  { name: "Maintenance Agent",      role: "Diagnostic Checker", icon: ShieldAlert,    color: "var(--color-emerald)", desc: "Validates vehicle health index and clears active DTC codes." },
+  { name: "Fuel Agent",             role: "Fuel Planner",       icon: Fuel,           color: "var(--color-emerald)", desc: "Plans fuel stops and projects total transaction cost." },
+  { name: "Analytics Agent",        role: "Data Aggregator",    icon: BarChart,       color: "var(--color-amber)",   desc: "Updates trip history, utilization indices, and fuel logs." },
+  { name: "Driver Rating Agent",    role: "Performance Scorer", icon: Star,           color: "var(--color-amber)",   desc: "Scores driver history metrics and logs DB ratings." },
+  { name: "Customer Agent",         role: "Notifier Service",   icon: Send,           color: "#f87171",              desc: "Generates ETA notifications and logs customer confirmations." },
+  { name: "Invoice Agent",          role: "Billing Generator",  icon: FileText,       color: "#f87171",              desc: "Formats and sends a PDF-styled invoice to the customer." },
+  { name: "Fleet Summary Agent",    role: "Fleet KPI Reporter", icon: TrendingUp,     color: "var(--color-blue)",    desc: "Aggregates overall fleet performance indexes." },
+  { name: "SOS Alert Agent",        role: "Emergency Monitor",  icon: AlertOctagon,   color: "#ef4444",              desc: "Dispatches alerts on severe weather or low vehicle health." },
 ];
 
 import { useWorkflow } from "../../hooks/useWorkflow";
@@ -180,7 +194,7 @@ export const Workflow = () => {
                 style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", color: "var(--color-emerald)" }}
               >
                 <CheckCircle2 className="w-4 h-4" />
-                All 5 agents completed successfully. Transaction persisted.
+                All 15 agents completed successfully. Transaction persisted.
               </motion.div>
             )}
           </AnimatePresence>

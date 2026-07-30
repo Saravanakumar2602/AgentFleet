@@ -757,6 +757,29 @@ def build_supervisor(S):
         [7*cm, 5*cm, 5*cm])
     return story
 
+def build_generic_agent(name, role, color, desc, route, step, input_json, output_json, S):
+    story = []
+    story += cover_block(S, name, role, color, desc, route, step)
+    story += section_header(S, "Overview")
+    story.append(Paragraph(f"The {name} is a dedicated agent component within the AgentFleet multi-agent architecture.", S["body"]))
+    
+    story += section_header(S, "Responsibilities")
+    story += bullet_list(S, [
+        f"Executes specialized validation logic corresponding to step {step}.",
+        "Maintains telemetry sync and updates task state.",
+        "Logs transactions to SQLite / PostgreSQL backend.",
+    ])
+
+    story += section_header(S, "API Endpoint")
+    story += info_table(S, ["Method", "Path", "Description"], [["POST", route, f"Trigger {name} operations"]], [3*cm, 6*cm, 8*cm])
+    
+    if input_json:
+        story.append(Paragraph("Request Parameters", S["subsection"]))
+        story += code_block(S, input_json)
+    
+    story.append(Paragraph("Response Output", S["subsection"]))
+    story += code_block(S, output_json)
+    return story
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PDF writer
@@ -769,6 +792,18 @@ AGENTS = [
     ("analytics",   build_analytics,   "Analytics Agent"),
     ("customer",    build_customer,    "Customer Agent"),
     ("supervisor",  build_supervisor,  "Supervisor Agent"),
+    
+    # New 10 agents
+    ("cargo_validation", lambda S: build_generic_agent("Cargo Validation Agent", "Pre-flight Checker", BRAND_BLUE, "Validates cargo weights", "/cargo/validate", "Step 1 of 15", ["{", '  "pickup": "chennai",', '  "destination": "bangalore",', '  "weight": 2500', "}"], ["{", '  "status": "success",', '  "cargo_class": "Standard Cargo",', '  "is_hazardous": false', "}"], S), "Cargo Validation Agent"),
+    ("traffic", lambda S: build_generic_agent("Traffic Agent", "Traffic Analyzer", BRAND_VIOLET, "Estimates congestion delays", "/traffic/analyze", "Step 3 of 15", ["{", '  "pickup": "chennai",', '  "destination": "bangalore"', "}"], ["{", '  "traffic_level": "Moderate",', '  "delay_minutes": 15', "}"], S), "Traffic Agent"),
+    ("weather", lambda S: build_generic_agent("Weather Agent", "Route Advisor", BRAND_VIOLET, "Live weather routing advice", "/weather/check", "Step 4 of 15", ["{", '  "destination": "bangalore"', "}"], ["{", '  "condition": "Clear",', '  "temperature_c": 28,', '  "weather_risk": "Low"', "}"], S), "Weather Agent"),
+    ("eta_updater", lambda S: build_generic_agent("ETA Updater Agent", "Precision Timer", BRAND_VIOLET, "Adjusts destination ETA", "/eta/update", "Step 6 of 15", ["{", '  "base_duration_minutes": 360,', '  "traffic_delay_minutes": 15,', '  "weather_delay_minutes": 0', "}"], ["{", '  "original_eta": "6h 0m",', '  "adjusted_eta": "6h 15m"', "}"], S), "ETA Updater Agent"),
+    ("compliance", lambda S: build_generic_agent("Compliance Agent", "Regulatory Checker", BRAND_GREEN, "Checks limits and intervals", "/compliance/check", "Step 7 of 15", ["{", '  "driver_id": "<uuid>",', '  "vehicle_id": "<uuid>"', "}"], ["{", '  "driver_hours_this_week": 14.5,', '  "compliance_status": "Compliant"', "}"], S), "Compliance Agent"),
+    ("fuel", lambda S: build_generic_agent("Fuel Agent", "Fuel Planner", BRAND_GREEN, "Estimates refueling cost", "/fuel/plan", "Step 9 of 15", ["{", '  "vehicle_id": "<uuid>",', '  "distance_km": 350.0,', '  "estimated_fuel_liters": 24.5', "}"], ["{", '  "estimated_fuel_cost_inr": 2499.0,', '  "refuel_stop_needed": false', "}"], S), "Fuel Agent"),
+    ("driver_rating", lambda S: build_generic_agent("Driver Rating Agent", "Performance Scorer", BRAND_AMBER, "Scores driver history performance", "/driver/rate", "Step 11 of 15", ["{", '  "driver_id": "<uuid>"', "}"], ["{", '  "driver_score": 85,', '  "performance_grade": "A"', "}"], S), "Driver Rating Agent"),
+    ("invoice", lambda S: build_generic_agent("Invoice Agent", "Billing Generator", BRAND_RED, "Computes charges and billing details", "/invoice/generate", "Step 13 of 15", ["{", '  "trip_id": "<uuid>",', '  "distance_km": 350.0,', '  "fuel_cost_inr": 2499.0', "}"], ["{", '  "invoice_number": "INV-A1B2C3D4",', '  "total_amount_inr": 7250.0', "}"], S), "Invoice Agent"),
+    ("fleet_summary", lambda S: build_generic_agent("Fleet Summary Agent", "Fleet KPI Reporter", BRAND_BLUE, "Aggregates overall fleet KPIs", "/fleet/summary", "Step 14 of 15", None, ["{", '  "total_vehicles": 12,', '  "active_trips": 4,', '  "fleet_utilization_pct": 33', "}"], S), "Fleet Summary Agent"),
+    ("sos_alert", lambda S: build_generic_agent("SOS Alert Agent", "Emergency Monitor", BRAND_RED, "Dispatches critical risk alerts", "/sos/check", "Step 15 of 15", ["{", '  "weather_risk": "High",', '  "health_score": 35', "}"], ["{", '  "alert_triggered": true,', '  "severity": "CRITICAL"', "}"], S), "SOS Alert Agent"),
 ]
 
 BASE_DIR = os.path.join(os.path.dirname(__file__),
@@ -804,4 +839,5 @@ def generate_all():
 
 if __name__ == "__main__":
     generate_all()
-    print("\nAll 6 agent PDF documents created successfully.")
+    print("\nAll 16 agent PDF documents created successfully.")
+

@@ -13,25 +13,45 @@ export interface WorkflowStepState {
 }
 
 const STEP_KEYS: (keyof WorkflowResults)[] = [
+  "cargo_validation",
   "dispatch",
+  "traffic",
+  "weather",
   "route",
+  "eta_updater",
+  "compliance",
   "maintenance",
+  "fuel",
   "analytics",
+  "driver_rating",
   "customer",
+  "invoice",
+  "fleet_summary",
+  "sos_alert",
 ];
 
 const STEP_META: { name: string; role: string }[] = [
+  { name: "Cargo Validation", role: "Pre-flight Checker" },
   { name: "Dispatch Agent",    role: "Fleet Assigner" },
+  { name: "Traffic Agent",     role: "Traffic Analyzer" },
+  { name: "Weather Agent",     role: "Route Advisor" },
   { name: "Route Agent",       role: "Route Intelligence" },
+  { name: "ETA Updater",       role: "Precision Timer" },
+  { name: "Compliance Agent",  role: "Regulatory Checker" },
   { name: "Maintenance Agent", role: "Diagnostic Checker" },
+  { name: "Fuel Agent",        role: "Fuel Planner" },
   { name: "Analytics Agent",   role: "Data Aggregator" },
+  { name: "Driver Rating",     role: "Performance Scorer" },
   { name: "Customer Agent",    role: "Notifier Service" },
+  { name: "Invoice Agent",     role: "Billing Generator" },
+  { name: "Fleet Summary",     role: "Fleet KPI Reporter" },
+  { name: "SOS Alert Agent",   role: "Emergency Monitor" },
 ];
 
 const buildInitialSteps = (): WorkflowStepState[] =>
   STEP_META.map((m) => ({ ...m, status: "idle" }));
 
-const STEP_DELAY_MS = 600;
+const STEP_DELAY_MS = 400; // slightly faster animation for 15 steps
 
 interface WorkflowContextValue {
   steps: WorkflowStepState[];
@@ -63,7 +83,7 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
 
   const animateSteps = useCallback((data: SupervisorExecuteResult) => {
     setResult(data);
-    setLogs([{ text: "[Supervisor] Workflow initiated. Sequencing agents...", type: "info" }]);
+    setLogs([{ text: "[Supervisor] Workflow initiated. Sequencing 15 agents...", type: "info" }]);
 
     STEP_KEYS.forEach((key, i) => {
       // Mark running
@@ -80,9 +100,16 @@ export const WorkflowProvider = ({ children }: { children: ReactNode }) => {
       // Mark completed
       setTimeout(() => {
         const stepData = data.results[key] as Record<string, unknown>;
-        const detail = Object.entries(stepData)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(" · ");
+        const detail = stepData
+          ? Object.entries(stepData)
+              .map(([k, v]) => {
+                if (typeof v === "object" && v !== null) {
+                  return `${k}: ${JSON.stringify(v)}`;
+                }
+                return `${k}: ${v}`;
+              })
+              .join(" · ")
+          : "";
 
         setSteps((prev) =>
           prev.map((s, idx) => (idx === i ? { ...s, status: "completed", detail } : s))

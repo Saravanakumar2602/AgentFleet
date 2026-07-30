@@ -347,7 +347,6 @@ class SupervisorService:
         if workflow_res.get("status") == "failed":
             logger.warning(f"Workflow execution reported failure. Propagation triggered.")
             return workflow_res
-
         restructured_results = {
             "dispatch": {
                 "trip_id": workflow_res["trip_id"],
@@ -369,9 +368,18 @@ class SupervisorService:
             },
             "customer": {
                 "customer_message": workflow_res["customer_message"]
-            }
+            },
+            "cargo_validation": workflow_res.get("cargo_validation"),
+            "traffic": workflow_res.get("traffic"),
+            "weather": workflow_res.get("weather"),
+            "eta_updater": workflow_res.get("eta_updater"),
+            "compliance": workflow_res.get("compliance"),
+            "fuel": workflow_res.get("fuel"),
+            "driver_rating": workflow_res.get("driver_rating"),
+            "invoice": workflow_res.get("invoice"),
+            "fleet_summary": workflow_res.get("fleet_summary"),
+            "sos_alert": workflow_res.get("sos_alert"),
         }
-
         if "next_service_after_km" in workflow_res and workflow_res["next_service_after_km"] is not None:
             restructured_results["maintenance"]["next_service_after_km"] = workflow_res["next_service_after_km"]
 
