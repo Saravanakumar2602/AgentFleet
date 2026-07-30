@@ -48,7 +48,7 @@ class CustomerRepository:
         Retrieves driver user profile details by driver ID.
         """
         query = text("""
-            SELECT d.id, d.user_id, u.name 
+            SELECT d.id, d.user_id, u.name, d.phone 
             FROM drivers d 
             JOIN users u ON d.user_id = u.id 
             WHERE d.id = :driver_id
@@ -67,26 +67,24 @@ class CustomerRepository:
         message: str, 
         notification_type: str = "Dispatch_Notice"
     ) -> str:
-        """
-        Registers an alert action in the notifications table.
-        """
+        import uuid
+        notif_uuid = str(uuid.uuid4())
         query = text("""
-            INSERT INTO notifications (trip_id, message, notification_type, status, sent_at)
-            VALUES (:trip_id, :message, :notification_type, 'Sent', NOW())
-            RETURNING id
+            INSERT INTO notifications (id, trip_id, message, notification_type, status, sent_at)
+            VALUES (:id, :trip_id, :message, :notification_type, 'Sent', NOW())
         """)
         try:
-            result = db.execute(
+            db.execute(
                 query,
                 {
+                    "id": notif_uuid,
                     "trip_id": trip_id,
                     "message": message,
                     "notification_type": notification_type
                 }
             )
-            notif_id = result.scalar()
             db.commit()
-            return str(notif_id)
+            return notif_uuid
         except Exception as e:
             db.rollback()
             logger.error(f"Error inserting customer notification: {e}")
