@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 import logging
+from sqlalchemy import text
 
 from backend.app.workflows.base_workflow import BaseWorkflow
 from backend.app.registry.registry import get_agent
@@ -8,8 +9,7 @@ logger = logging.getLogger("agentfleet.workflows.delivery_workflow")
 
 class DeliveryWorkflow(BaseWorkflow):
     """
-    Fleet Delivery Workflow orchestrating all 5 agents sequentially:
-    Dispatch -> Route -> Maintenance -> Analytics -> Customer.
+    Fleet Delivery Workflow orchestrating all 15 agents sequentially.
     """
     def validate(self, task_data: dict) -> bool:
         pickup = task_data.get("pickup")
@@ -25,11 +25,33 @@ class DeliveryWorkflow(BaseWorkflow):
         steps_data = {}
 
         # --------------------------------------------------------------------
-        # Step 1: Dispatch Agent
+        # Step 1: Cargo Validation
+        # --------------------------------------------------------------------
+        agent_name = "Cargo Validation"
+        try:
+            logger.info("Executing Step 1: Cargo Validation Agent")
+            cargo_agent = get_agent("cargo_validation")
+            if not cargo_agent:
+                raise RuntimeError("Cargo Validation Agent not found in registry.")
+            cargo_res = cargo_agent.run(
+                db=db,
+                task_data={
+                    "pickup": task_data["pickup"],
+                    "destination": task_data["destination"],
+                    "weight": float(task_data["weight"])
+                }
+            )
+            steps_data["cargo_validation"] = cargo_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 2: Dispatch Agent
         # --------------------------------------------------------------------
         agent_name = "Dispatch"
         try:
-            logger.info("Executing Step 1: Dispatch Agent")
+            logger.info("Executing Step 2: Dispatch Agent")
             dispatch_agent = get_agent("dispatch")
             if not dispatch_agent:
                 raise RuntimeError("Dispatch Agent not found in registry.")
@@ -53,11 +75,52 @@ class DeliveryWorkflow(BaseWorkflow):
             return self._build_failure_response(agent_name, exc)
 
         # --------------------------------------------------------------------
-        # Step 2: Route Agent
+        # Step 3: Traffic Agent
+        # --------------------------------------------------------------------
+        agent_name = "Traffic"
+        try:
+            logger.info("Executing Step 3: Traffic Agent")
+            traffic_agent = get_agent("traffic")
+            if not traffic_agent:
+                raise RuntimeError("Traffic Agent not found in registry.")
+            traffic_res = traffic_agent.run(
+                db=db,
+                task_data={
+                    "pickup": task_data["pickup"],
+                    "destination": task_data["destination"]
+                }
+            )
+            steps_data["traffic"] = traffic_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 4: Weather Agent
+        # --------------------------------------------------------------------
+        agent_name = "Weather"
+        try:
+            logger.info("Executing Step 4: Weather Agent")
+            weather_agent = get_agent("weather")
+            if not weather_agent:
+                raise RuntimeError("Weather Agent not found in registry.")
+            weather_res = weather_agent.run(
+                db=db,
+                task_data={
+                    "destination": task_data["destination"]
+                }
+            )
+            steps_data["weather"] = weather_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 5: Route Agent
         # --------------------------------------------------------------------
         agent_name = "Route"
         try:
-            logger.info("Executing Step 2: Route Agent")
+            logger.info("Executing Step 5: Route Agent")
             route_agent = get_agent("route")
             if not route_agent:
                 raise RuntimeError("Route Agent not found in registry.")
@@ -73,7 +136,6 @@ class DeliveryWorkflow(BaseWorkflow):
             steps_data["route"] = route_res
             
             # Create a placeholder analytics record so the Analytics Agent has real records to calculate efficiency
-            from sqlalchemy import text
             try:
                 duration_str = route_res.get("estimated_duration", "0")
                 minutes_val = 0
@@ -183,11 +245,72 @@ class DeliveryWorkflow(BaseWorkflow):
             return self._build_failure_response(agent_name, exc)
 
         # --------------------------------------------------------------------
-        # Step 3: Maintenance Agent
+        # Step 6: ETA Updater Agent
+        # --------------------------------------------------------------------
+        agent_name = "ETA Updater"
+        try:
+            logger.info("Executing Step 6: ETA Updater Agent")
+            eta_agent = get_agent("eta_updater")
+            if not eta_agent:
+                raise RuntimeError("ETA Updater Agent not found in registry.")
+
+            # Base duration from route is string, let's parse or use fallback
+            duration_str = route_res.get("estimated_duration", "0")
+            minutes_val = 0
+            if "h" in duration_str:
+                parts = duration_str.split("h")
+                hours_part = parts[0].strip()
+                mins_part = parts[1].replace("m", "").strip() if len(parts) > 1 else "0"
+                try:
+                    minutes_val = int(hours_part) * 60 + int(mins_part or 0)
+                except:
+                    minutes_val = 240
+            else:
+                try:
+                    minutes_val = int(duration_str.replace("m", "").strip())
+                except:
+                    minutes_val = 240
+
+            eta_res = eta_agent.run(
+                db=db,
+                task_data={
+                    "base_duration_minutes": minutes_val,
+                    "traffic_delay_minutes": traffic_res.get("delay_minutes", 0),
+                    "weather_delay_minutes": weather_res.get("weather_delay_minutes", 0)
+                }
+            )
+            steps_data["eta_updater"] = eta_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 7: Compliance Agent
+        # --------------------------------------------------------------------
+        agent_name = "Compliance"
+        try:
+            logger.info("Executing Step 7: Compliance Agent")
+            compliance_agent = get_agent("compliance")
+            if not compliance_agent:
+                raise RuntimeError("Compliance Agent not found in registry.")
+            compliance_res = compliance_agent.run(
+                db=db,
+                task_data={
+                    "driver_id": checkpoint_data["driver_id"],
+                    "vehicle_id": checkpoint_data["vehicle_id"]
+                }
+            )
+            steps_data["compliance"] = compliance_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 8: Maintenance Agent
         # --------------------------------------------------------------------
         agent_name = "Maintenance"
         try:
-            logger.info("Executing Step 3: Maintenance Agent")
+            logger.info("Executing Step 8: Maintenance Agent")
             maint_agent = get_agent("maintenance")
             if not maint_agent:
                 raise RuntimeError("Maintenance Agent not found in registry.")
@@ -204,11 +327,33 @@ class DeliveryWorkflow(BaseWorkflow):
             return self._build_failure_response(agent_name, exc)
 
         # --------------------------------------------------------------------
-        # Step 4: Fleet Analytics Agent
+        # Step 9: Fuel Agent
+        # --------------------------------------------------------------------
+        agent_name = "Fuel"
+        try:
+            logger.info("Executing Step 9: Fuel Agent")
+            fuel_agent = get_agent("fuel")
+            if not fuel_agent:
+                raise RuntimeError("Fuel Agent not found in registry.")
+            fuel_res = fuel_agent.run(
+                db=db,
+                task_data={
+                    "vehicle_id": checkpoint_data["vehicle_id"],
+                    "distance_km": float(route_res.get("distance_km", 0)),
+                    "estimated_fuel_liters": float(route_res.get("estimated_fuel", 0))
+                }
+            )
+            steps_data["fuel"] = fuel_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 10: Fleet Analytics Agent
         # --------------------------------------------------------------------
         agent_name = "Analytics"
         try:
-            logger.info("Executing Step 4: Fleet Analytics Agent")
+            logger.info("Executing Step 10: Fleet Analytics Agent")
             analytics_agent = get_agent("analytics")
             if not analytics_agent:
                 raise RuntimeError("Analytics Agent not found in registry.")
@@ -225,11 +370,31 @@ class DeliveryWorkflow(BaseWorkflow):
             return self._build_failure_response(agent_name, exc)
 
         # --------------------------------------------------------------------
-        # Step 5: Customer Agent
+        # Step 11: Driver Rating Agent
+        # --------------------------------------------------------------------
+        agent_name = "Driver Rating"
+        try:
+            logger.info("Executing Step 11: Driver Rating Agent")
+            driver_rating_agent = get_agent("driver_rating")
+            if not driver_rating_agent:
+                raise RuntimeError("Driver Rating Agent not found in registry.")
+            rating_res = driver_rating_agent.run(
+                db=db,
+                task_data={
+                    "driver_id": checkpoint_data["driver_id"]
+                }
+            )
+            steps_data["driver_rating"] = rating_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 12: Customer Agent
         # --------------------------------------------------------------------
         agent_name = "Customer"
         try:
-            logger.info("Executing Step 5: Customer Agent")
+            logger.info("Executing Step 12: Customer Agent")
             customer_agent = get_agent("customer")
             if not customer_agent:
                 raise RuntimeError("Customer Agent not found in registry.")
@@ -241,6 +406,69 @@ class DeliveryWorkflow(BaseWorkflow):
                 }
             )
             steps_data["customer"] = customer_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 13: Invoice Agent
+        # --------------------------------------------------------------------
+        agent_name = "Invoice"
+        try:
+            logger.info("Executing Step 13: Invoice Agent")
+            invoice_agent = get_agent("invoice")
+            if not invoice_agent:
+                raise RuntimeError("Invoice Agent not found in registry.")
+            invoice_res = invoice_agent.run(
+                db=db,
+                task_data={
+                    "trip_id": checkpoint_data["trip_id"],
+                    "distance_km": float(route_res.get("distance_km", 0)),
+                    "fuel_cost_inr": float(fuel_res.get("estimated_fuel_cost_inr", 0))
+                }
+            )
+            steps_data["invoice"] = invoice_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 14: Fleet Summary Agent
+        # --------------------------------------------------------------------
+        agent_name = "Fleet Summary"
+        try:
+            logger.info("Executing Step 14: Fleet Summary Agent")
+            summary_agent = get_agent("fleet_summary")
+            if not summary_agent:
+                raise RuntimeError("Fleet Summary Agent not found in registry.")
+            summary_res = summary_agent.run(
+                db=db,
+                task_data={}
+            )
+            steps_data["fleet_summary"] = summary_res
+        except Exception as exc:
+            self.rollback(db, checkpoint_data)
+            return self._build_failure_response(agent_name, exc)
+
+        # --------------------------------------------------------------------
+        # Step 15: SOS Alert Agent
+        # --------------------------------------------------------------------
+        agent_name = "SOS Alert"
+        try:
+            logger.info("Executing Step 15: SOS Alert Agent")
+            sos_agent = get_agent("sos_alert")
+            if not sos_agent:
+                raise RuntimeError("SOS Alert Agent not found in registry.")
+            sos_res = sos_agent.run(
+                db=db,
+                task_data={
+                    "weather_risk": weather_res.get("weather_risk", "Low"),
+                    "health_score": int(maint_res.get("health_score", 100)),
+                    "vehicle_id": checkpoint_data["vehicle_id"],
+                    "trip_id": checkpoint_data["trip_id"]
+                }
+            )
+            steps_data["sos_alert"] = sos_res
         except Exception as exc:
             self.rollback(db, checkpoint_data)
             return self._build_failure_response(agent_name, exc)
@@ -261,17 +489,13 @@ class DeliveryWorkflow(BaseWorkflow):
 
         logger.info(f"Triggering workflow rollback for checkpoint state: {checkpoint_data}")
         try:
-            from sqlalchemy import text
             if trip_id:
-                # Delete associated notifications to prevent constraint violations
                 db.execute(text("DELETE FROM notifications WHERE trip_id = :trip_id"), {"trip_id": trip_id})
-                # Delete the created trip record to prevent orphaned rows
+                db.execute(text("DELETE FROM invoices WHERE trip_id = :trip_id"), {"trip_id": trip_id})
                 db.execute(text("DELETE FROM trips WHERE id = :id"), {"id": trip_id})
             if vehicle_id:
-                # Reset vehicle status back to 'Available'
                 db.execute(text("UPDATE vehicles SET status = 'Available' WHERE id = :id"), {"id": vehicle_id})
             if driver_id:
-                # Reset driver status back to 'Available'
                 db.execute(text("UPDATE drivers SET status = 'Available' WHERE id = :id"), {"id": driver_id})
             db.commit()
             logger.info("Workflow rollback executed successfully.")
@@ -285,6 +509,18 @@ class DeliveryWorkflow(BaseWorkflow):
         maint_res = steps_data["maintenance"]
         analytics_res = steps_data["analytics"]
         customer_res = steps_data["customer"]
+        
+        # New 10 agents
+        cargo_res = steps_data["cargo_validation"]
+        traffic_res = steps_data["traffic"]
+        weather_res = steps_data["weather"]
+        eta_res = steps_data["eta_updater"]
+        comp_res = steps_data["compliance"]
+        fuel_res = steps_data["fuel"]
+        rating_res = steps_data["driver_rating"]
+        invoice_res = steps_data["invoice"]
+        summary_res = steps_data["fleet_summary"]
+        sos_res = steps_data["sos_alert"]
 
         return {
             "status": "success",
@@ -300,7 +536,19 @@ class DeliveryWorkflow(BaseWorkflow):
             "next_service_after_km": maint_res.get("next_service_after_km"),
             "utilization": analytics_res["utilization"],
             "recommendation": analytics_res["recommendation"],
-            "customer_message": customer_res["customer_message"]
+            "customer_message": customer_res["customer_message"],
+            
+            # Formatted new properties
+            "cargo_validation": cargo_res,
+            "traffic": traffic_res,
+            "weather": weather_res,
+            "eta_updater": eta_res,
+            "compliance": comp_res,
+            "fuel": fuel_res,
+            "driver_rating": rating_res,
+            "invoice": invoice_res,
+            "fleet_summary": summary_res,
+            "sos_alert": sos_res
         }
 
     def _build_failure_response(self, failed_agent: str, exc: Exception) -> dict:
